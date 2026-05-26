@@ -1,0 +1,21 @@
+{
+  "name": "musinsa-wujinjang-ad",
+  "version": "1.0.0",
+  "description": "무신사 무진장 AI 영상 광고제 2026 — 계유정난 시나리오",
+  "scripts": {
+    "start": "npx remotion studio",
+    "build": "npx remotion render src/index.ts KingsChoice out/kings-choice.mp4",
+    "render": "npx remotion render src/index.ts KingsChoice out/kings-choice.mp4"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.465",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "remotion": "4.0.465"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.29",
+    "@types/react-dom": "^18.3.7",
+    "typescript": "^5.9.3"
+  }
+}

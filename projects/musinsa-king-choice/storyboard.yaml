@@ -1,0 +1,93 @@
+fps: 30
+width: 1080
+height: 1920
+cuts:
+- id: cut01
+  start_s: 0
+  duration_s: 3
+  label: 수양대군 등장
+- id: cut02
+  start_s: 3
+  duration_s: 3
+  label: 단종·신하 무릎
+- id: cut03
+  start_s: 6
+  duration_s: 4
+  label: 수양 위협 대사
+  dialogue:
+    speaker: suyang
+    voice: ko-KR-InJoonNeural
+    style: stern
+    text: "역적들을 처단하였사옵니다.\n전하께서 소신에게 영의정부사,\n이조·병조판서를 내리소서."
+- id: cut04
+  start_s: 10
+  duration_s: 4
+  label: 단종-수양 대화
+  dialogue:
+    speaker: danjong
+    voice: ko-KR-InJoonNeural
+    style: tearful
+    text: 숙부, 어찌하여…
+- id: cut05
+  start_s: 14
+  duration_s: 3
+  label: 단종 무진장 절규
+  dialogue:
+    speaker: danjong
+    voice: ko-KR-InJoonNeural
+    style: tearful
+    text: 무진장… 슬프구나
+- id: cut06
+  start_s: 17
+  duration_s: 3
+  label: 변신 시퀀스
+- id: cut07
+  start_s: 20
+  duration_s: 3
+  label: 단종 현대 패션 선포
+  dialogue:
+    speaker: danjong
+    voice: ko-KR-InJoonNeural
+    style: royal
+    text: "그리하라.\n숙부님 마음대로 다 하십쇼."
+- id: cut08
+  start_s: 23
+  duration_s: 2
+  label: 수양 충격
+  dialogue:
+    speaker: suyang
+    voice: ko-KR-InJoonNeural
+    style: stern
+    text: "전하, 참으로 멋지시옵니다!\n무진장 송구하옵니다!"
+- id: cut09
+  start_s: 25
+  duration_s: 3
+  label: 조정→궁문 행진 + 문 닫힘
+  dialogue:
+    speaker: danjong
+    voice: ko-KR-InJoonNeural
+    style: royal
+    text: "곧 무진장이다.\n의복을 사야 하니 단단히 준비하라!"
+title_card:
+  start_s: 28
+  duration_s: 2
+  text: 왕의 선택
+subtitles_legacy:
+- start_s: 6
+  end_s: 10
+  text: "역적들을 처단하였사옵니다.\n전하께서 소신에게 영의정부사,\n이조·병조판서를 내리소서."
+- start_s: 10
+  end_s: 14
+  text: 숙부, 어찌하여…
+- start_s: 14
+  end_s: 17
+  text: 무진장… 슬프구나
+- start_s: 20
+  end_s: 23
+  text: "그리하라.\n숙부님 마음대로 다 하십쇼."
+- start_s: 23
+  end_s: 25
+  text: "전하, 참으로 멋지시옵니다!\n무진장 송구하옵니다!"
+- start_s: 25
+  end_s: 28
+  text: "곧 무진장이다.\n의복을 사야 하니 단단히 준비하라!"

@@ -1,0 +1,49 @@
+project:
+  id: musinsa-king-choice
+  title: 왕의 선택
+  description: 무신사 무진장 광고제 2026 출품작 — 계유정난을 재해석한 30초 광고.
+  output:
+    width: 1080
+    height: 1920
+    fps: 30
+    duration_s: 30
+stages:
+  s00_character_sheets:
+    adapter: google_flow_imagen
+    model: imagen-4-ultra
+    aspect_ratio: 9:16
+    prompts_file: prompts/00-character-sheets.yaml
+  s01_cut_images:
+    adapter: google_flow_imagen
+    model: imagen-4-ultra
+    aspect_ratio: 9:16
+    prompts_file: prompts/01-cut-images.yaml
+    depends_on:
+    - s00_character_sheets
+  s02_cut_videos:
+    adapter: google_flow_veo
+    model: veo-3.1-high-quality
+    prompts_file: prompts/02-cut-videos.yaml
+    depends_on:
+    - s01_cut_images
+  s03_voice:
+    adapter: edge_tts
+    voice: ko-KR-InJoonNeural
+    fallback_adapter: clova
+    enabled: true
+  s04_audio:
+    adapter: pixabay
+    keywords_file: prompts/04-audio-keywords.yaml
+  s05_compose:
+    adapter: remotion
+    project_remotion_dir: remotion
+    composition_id: KingsChoice
+    output_filename: final.mp4
+approval:
+  mode: gate
+  preview: open
+browser:
+  headed: true
+  storage_state: ../../.auth/google.json
+  user_data_dir: ../../.auth/chrome-profile
+storyboard_file: storyboard.yaml
