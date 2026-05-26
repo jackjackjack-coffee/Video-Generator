@@ -4,6 +4,14 @@
 
 ---
 
+## 2026-05-26 — pipeline.py / ui/approve.py 1차 구현 + edge_tts pitch 버그 픽스
+
+- `creativeforge/pipeline.py`: topological stage ordering, adapter dispatch by kind, state.json 매 아이템마다 저장, `--only/--from` 플래그 지원.
+- `creativeforge/ui/approve.py`: 아이템 단위 `[a/r/e/i/s/q]` 게이트. `[e]` 누르면 `runs/<id>/prompt-overrides/<id>.yaml` 열어서 prompt 재정의 (pipeline이 이 파일을 자동으로 읽음).
+- 어댑터 인스턴스화는 `_dispatch` 시점 지연 — `--dry-run`에 PIXABAY_API_KEY 등 시크릿이 필요 없도록.
+- 레퍼런스 해석: `"Sheet 3 (Suyang)"` 같은 라벨을 `sheet3*.png` 정규식으로 best-effort 매칭. 미스 시 경고 후 빈 references로 진행.
+- `edge_tts.py` pitch 값: `%` → `Hz`로 변경 (edge-tts는 `±NHz` 형식만 허용). 기존 `-10%` 등은 호출 시 에러.
+
 ## 2026-05-26 — storyboard cut04/cut09 화자·대사 정정
 
 - cut04 화자: `suyang` → `danjong` (대사 "숙부, 어찌하여…"는 단종이 수양을 부르는 말).
