@@ -37,17 +37,26 @@ Design and rationale: see the approved plan referenced in the commit body, summa
 - **`creativeforge/ui/approve.py`** — interactive per-item gate with rich table, `[a/r/e/i/s/q]` keys, `xdg-open`/`open`/`os.startfile` preview, `$EDITOR` opens `runs/<id>/prompt-overrides/<item>.yaml`. Returns aggregate decision (`approved` / `regen` / `skip` / `quit`).
 - **Edge-TTS pitch bug fix** — pitch values switched from `%` (invalid) to `Hz` (required by edge-tts). Caught while smoke-testing real voice generation.
 
+## Completed in session 2026-05-27 (Phase A scaffolding for Flow adapters)
+
+- **`creativeforge/browser/selectors.py`** — `first_visible(page, candidates, label)` walks a fallback list of locator factories and returns the first visible one; raises `SelectorMiss` with a debug dump (HTML + screenshot) on full miss. Also exposes `LoginRequired` and a `CURRENT_RUN_DIR` ContextVar so dumps land under `runs/<id>/debug/`.
+- **`creativeforge/browser/flow_imagen.py`** + **`flow_veo.py`** — full Playwright flows (navigate → model pick → aspect ratio → reference upload → prompt → submit → wait → download). Selectors are first-guess fallback chains; expect heavy iteration in the paired session.
+- **`creativeforge/adapters/image/google_flow_imagen.py`** + **`adapters/video/google_flow_veo.py`** — stubs replaced with Protocol-thin wrappers that open `headed_context` and hand the Page to the helpers. Accept `(browser_cfg, project_dir)`.
+- **`creativeforge/pipeline.py`** — `_get_adapter` injects `browser_cfg` + `project_dir` for the Flow adapters only; `_dispatch` sets `CURRENT_RUN_DIR` around the call.
+- **`scripts/login_google_flow.py`** — one-time login bootstrap (opens Flow, waits for manual sign-in, snapshots `.auth/chrome-profile/` + `.auth/google.json`).
+- Dry-run + import sanity verified in the cloud sandbox; the live UI work must happen on the user's Windows machine.
+
 ## What's NOT done — picked-up tasks
 
 ### High priority
 
-1. **Regenerate loop wiring**. `ui/approve.py` reports `regen` but `pipeline._run_stage` only logs the decision. Wire `regen` → re-run flagged items in place, then re-prompt. Look for the `# Regenerations happen inline ...` comment in `pipeline.py:_run_stage`.
+1. **Phase B: paired selector iteration** (Windows, local Claude Code session).
+   - Bootstrap: `python scripts/login_google_flow.py`.
+   - Test target: `creativeforge run musinsa-king-choice --only s00_character_sheets --auto-approve`.
+   - First-guess selectors are committed but will mostly miss. Each miss dumps `runs/<id>/debug/<ts>-<label>.{html,png}`. Iterate by prepending new candidate lambdas in `creativeforge/browser/flow_imagen.py` and `flow_veo.py`. Keep older candidates at the bottom — they self-heal across Flow A/B tests.
+   - Tools: `playwright codegen https://labs.google/fx/tools/flow --load-storage .auth/google.json`, `set PWDEBUG=1`.
 
-2. **Implement Playwright adapters** (`google_flow_imagen.py`, `google_flow_veo.py`).
-   - Live UI exploration session required: headed Chromium, use DevTools to map selectors.
-   - Use `creativeforge.browser.session.headed_context` for persistence.
-   - Follow the checklists in each adapter's module docstring.
-   - **Caution**: don't try to solve captchas; let the user clear them manually.
+2. **Regenerate loop wiring**. `ui/approve.py` reports `regen` but `pipeline._run_stage` only logs the decision. Wire `regen` → re-run flagged items in place, then re-prompt. Look for the `# Regenerations happen inline ...` comment in `pipeline.py:_run_stage`.
 
 3. **`resume <run_id>`** — load `state.json`, find the first non-`approved` stage, restart `Pipeline` from there. The infrastructure (`RunState.load`, `--from`) exists; needs a thin wrapper that derives the start stage automatically.
 

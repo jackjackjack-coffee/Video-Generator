@@ -34,6 +34,7 @@ from rich.console import Console
 from ruamel.yaml import YAML
 
 from creativeforge.adapters.base import GenRequest, GenResult, get_adapter
+from creativeforge.browser.selectors import CURRENT_RUN_DIR
 from creativeforge.config import ProjectConfig, StageSpec
 from creativeforge.state import RunState
 
@@ -187,6 +188,8 @@ class Pipeline:
         prompt = self._apply_override(item)
         started = datetime.now(timezone.utc).isoformat()
 
+        # Lets browser/selectors.dump_debug() write to runs/<id>/debug/ on miss.
+        token = CURRENT_RUN_DIR.set(self.run_dir)
         try:
             adapter = self._get_adapter(spec.adapter)
             if kind in ("image", "video"):
@@ -243,6 +246,8 @@ class Pipeline:
         except Exception as e:
             console.print(f"    [red]error: {e}[/red]")
             return {"status": "error", "error": str(e)}
+        finally:
+            CURRENT_RUN_DIR.reset(token)
 
     async def _run_compose(
         self, stage_id: str, spec: StageSpec, stage_dir: Path
@@ -389,7 +394,14 @@ class Pipeline:
     def _get_adapter(self, name: str):
         if name not in self._adapters:
             cls = get_adapter(name)
-            self._adapters[name] = cls()
+            # Flow adapters need browser config + project dir for .auth/ paths.
+            if name in ("google_flow_imagen", "google_flow_veo"):
+                self._adapters[name] = cls(
+                    browser_cfg=self.cfg.browser,
+                    project_dir=self.project_dir,
+                )
+            else:
+                self._adapters[name] = cls()
         return self._adapters[name]
 
     def _load_yaml(self, path: Path) -> dict:

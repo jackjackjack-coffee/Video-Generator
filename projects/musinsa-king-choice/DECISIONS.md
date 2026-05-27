@@ -4,6 +4,18 @@
 
 ---
 
+## 2026-05-27 — Flow Playwright 어댑터 Phase A 스캐폴딩 (페어드 세션 준비)
+
+- `creativeforge/browser/selectors.py`: `first_visible()` fallback 체인 + 미스 시 HTML/스크린샷 덤프. `CURRENT_RUN_DIR` ContextVar로 덤프 위치 주입.
+- `creativeforge/browser/flow_imagen.py` / `flow_veo.py`: Imagen·Veo Playwright 자동화 (네비 → 모델·종횡비 픽 → 참조 업로드 → 프롬프트 → 제출 → 대기 → 다운로드). 셀렉터는 1차 추측이므로 실제 UI에서 거의 다 빗나갈 것 — 의도된 출발점.
+- 어댑터 파일은 `headed_context` 열고 `Page`를 헬퍼에 넘기는 얇은 래퍼로 축소.
+- `Pipeline._get_adapter`가 Flow 어댑터에만 `browser_cfg` + `project_dir` 주입. 다른 어댑터는 영향 없음.
+- `scripts/login_google_flow.py`: 최초 로그인 부트스트랩. `.auth/chrome-profile/`(주) + `.auth/google.json`(보조) 둘 다 저장.
+- **결정**: storage_state 단독은 Google anti-bot에 약함 → `user_data_dir`(영구 Chrome 프로필) 우선, storage_state는 fallback. `headed_context`가 이미 그렇게 동작.
+- **결정**: 4개 Imagen variant 중 첫 번째만 반환. 4개 전체 반환은 `GenResult`를 list 타입으로 확장해야 해서 보류 — 승인 게이트의 `[r]` 키로 재생성 처리.
+- **결정**: 캡차는 절대 우회 시도 안 함. 감지하면 `input()`으로 블록해서 사용자가 수동 해결.
+- 다음 세션은 Windows 로컬 Claude Code에서 진행. 사용자가 클론 + venv + `playwright install chromium` + 로그인 스크립트 실행 → 셀렉터 페어드 이터레이션.
+
 ## 2026-05-26 — pipeline.py / ui/approve.py 1차 구현 + edge_tts pitch 버그 픽스
 
 - `creativeforge/pipeline.py`: topological stage ordering, adapter dispatch by kind, state.json 매 아이템마다 저장, `--only/--from` 플래그 지원.
