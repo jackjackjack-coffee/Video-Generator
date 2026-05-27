@@ -1,0 +1,166 @@
+"""Interactive approval gate between stages.
+
+Keys per item:
+    a — approve
+    r — mark for regenerate (writes a marker in prompt-overrides/ so caller can re-run)
+    e — open $EDITOR on the prompt override; auto-marks for regenerate
+    i — inspect / open artifact in OS default viewer (xdg-open / open / start)
+    s — skip this item
+    q — abort the run
+
+The gate writes per-item decisions to `<run>/state.json` (via the stage record
+already written by the pipeline) and returns one of: `approved`, `regen`,
+`skip`, `quit`. For MVP, `regen` is reported but actual re-run isn't wired in
+yet — see HANDOFF.md for the follow-up.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import platform
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+from typing import Literal
+
+from rich.console import Console
+from rich.prompt import Prompt
+from rich.table import Table
+
+Decision = Literal["approved", "regen", "skip", "quit"]
+console = Console()
+
+VALID_KEYS = {"a", "r", "e", "i", "s", "q"}
+
+
+def _open_in_os(path: Path) -> None:
+    if not path.exists():
+        console.print(f"  [red]not found: {path}[/red]")
+        return
+    try:
+        if sys.platform == "darwin":
+            subprocess.Popen(["open", str(path)])
+        elif sys.platform.startswith("win"):
+            os.startfile(str(path))  # type: ignore[attr-defined]
+        else:
+            opener = shutil.which("xdg-open") or "xdg-open"
+            subprocess.Popen([opener, str(path)])
+    except Exception as e:
+        console.print(f"  [red]open failed: {e}[/red]")
+
+
+def _edit_override(run_dir: Path, item_id: str, current_prompt: str) -> Path:
+    override_dir = run_dir / "prompt-overrides"
+    override_dir.mkdir(parents=True, exist_ok=True)
+    path = override_dir / f"{item_id}.yaml"
+    if not path.exists():
+        path.write_text(
+            "# Override the prompt for this item. The pipeline reads this on regenerate.\n"
+            "prompt: |\n  "
+            + current_prompt.replace("\n", "\n  ")
+            + "\n"
+        )
+    editor = os.environ.get("EDITOR") or ("notepad" if sys.platform.startswith("win") else "nano")
+    subprocess.call([editor, str(path)])
+    return path
+
+
+def _load_stage_items(run_dir: Path, stage_id: str) -> dict[str, dict]:
+    state_path = run_dir / "state.json"
+    if not state_path.exists():
+        return {}
+    data = json.loads(state_path.read_text())
+    return ((data.get("stages") or {}).get(stage_id) or {}).get("items") or {}
+
+
+def _render_table(stage_id: str, items: dict[str, dict], stage_dir: Path) -> None:
+    table = Table(title=f"Stage {stage_id} — review")
+    table.add_column("item")
+    table.add_column("status")
+    table.add_column("artifact")
+    for item_id, info in items.items():
+        artifact = info.get("path") or (
+            ", ".join(Path(p).name for p in info.get("paths", [])) or "-"
+        )
+        table.add_row(item_id, info.get("status", "?"), Path(artifact).name if isinstance(artifact, str) and artifact != "-" else str(artifact))
+    console.print(table)
+
+
+async def approve_stage(stage_id: str, stage_dir: Path, run_dir: Path) -> Decision:
+    """Walk through all items in a stage, prompting per item.
+
+    Returns the aggregate decision:
+      - `quit`     if user pressed `q` at any point
+      - `regen`    if any item was marked for regenerate (caller decides what to do)
+      - `skip`     if all items were skipped
+      - `approved` otherwise (default)
+    """
+    items = _load_stage_items(run_dir, stage_id)
+    if not items:
+        console.print(f"[dim]{stage_id}: nothing to approve[/dim]")
+        return "approved"
+
+    _render_table(stage_id, items, stage_dir)
+    console.print(
+        "[dim]keys: [a]pprove  [r]egenerate  [e]dit prompt  [i]nspect  [s]kip  [q]uit[/dim]"
+    )
+
+    any_regen = False
+    all_skipped = True
+
+    for item_id, info in items.items():
+        artifact_path: Path | None = None
+        if info.get("path"):
+            artifact_path = Path(info["path"])
+        elif info.get("paths"):
+            artifact_path = Path(info["paths"][0])
+
+        while True:
+            choice = Prompt.ask(
+                f"  {item_id}",
+                choices=sorted(VALID_KEYS),
+                default="a",
+                show_choices=False,
+            ).strip().lower()
+            if choice not in VALID_KEYS:
+                console.print("    [red]invalid key[/red]")
+                continue
+            if choice == "i":
+                if artifact_path:
+                    _open_in_os(artifact_path)
+                else:
+                    console.print("    [yellow]no artifact to inspect[/yellow]")
+                continue
+            if choice == "e":
+                prompt_text = ""
+                meta_path = stage_dir / f"{item_id}.meta.json"
+                if meta_path.exists():
+                    try:
+                        prompt_text = json.loads(meta_path.read_text()).get("prompt", "")
+                    except Exception:
+                        pass
+                _edit_override(run_dir, item_id, prompt_text)
+                any_regen = True
+                all_skipped = False
+                console.print("    [yellow]marked for regenerate[/yellow]")
+                break
+            if choice == "r":
+                any_regen = True
+                all_skipped = False
+                console.print("    [yellow]marked for regenerate[/yellow]")
+                break
+            if choice == "a":
+                all_skipped = False
+                break
+            if choice == "s":
+                break
+            if choice == "q":
+                return "quit"
+
+    if any_regen:
+        return "regen"
+    if all_skipped:
+        return "skip"
+    return "approved"

@@ -1,24 +1,14 @@
-"""Google Flow Veo adapter — STUB.
+"""Google Flow Veo adapter — drives labs.google/fx/tools/flow via Playwright.
 
-# Implementation checklist for the next session
+Browser interaction lives in `creativeforge/browser/flow_veo.py`. Same shape as
+the Imagen adapter.
 
-1. Reuse browser session module (storage_state).
-2. Navigate to Flow → Video creation.
-3. Select model from req.model (e.g. "veo-3.1-high-quality" — match exact UI label).
-4. Image-to-video: upload req.references[0] as the start frame (or grid of refs).
-5. Aspect ratio = req.aspect_ratio.
-6. Prompt = req.prompt.
-7. Submit. Wait for completion (3-5 min typical; cap at 10 min).
-   - Poll via DOM, not sleep.
-   - Show progress text if available.
-8. Download mp4 → out_dir / f"{req.extra['item_id']}.mp4".
-9. On credit_exhausted error: raise CreditExhausted(...) so pipeline can fall back.
-
-# Known quirks (from manual experience documented in projects/musinsa-king-choice/CONTEXT.md)
-
-- Veo 3.1 clip max 8 seconds. Longer cuts must be stitched (storyboard.yaml controls this — keep each cut ≤ 8s in this project).
-- Image-to-video preserves identity better than text-only — always pass the cut01 still image as reference.
-- "high quality" toggle costs ~3x credits but is required for visible quality on 1080p output.
+Known quirks (from projects/musinsa-king-choice/CONTEXT.md):
+- Veo 3.1 clip max ~8s. Storyboard must keep each cut ≤ 8s.
+- Image-to-video preserves identity better than text-only — always pass a
+  reference image. The pipeline auto-resolves references for s02_cut_videos
+  from s01_cut_images outputs.
+- The 'high quality' toggle costs ~3x credits but is required for 1080p output.
 """
 
 from __future__ import annotations
@@ -26,14 +16,37 @@ from __future__ import annotations
 from pathlib import Path
 
 from creativeforge.adapters.base import GenRequest, GenResult, register
+from creativeforge.browser.flow_veo import generate_video
+from creativeforge.browser.session import headed_context
+from creativeforge.config import BrowserConfig
 
 
 @register("google_flow_veo")
 class GoogleFlowVeoAdapter:
     name: str
 
+    def __init__(
+        self,
+        browser_cfg: BrowserConfig | None = None,
+        project_dir: Path | None = None,
+    ):
+        self.browser_cfg = browser_cfg or BrowserConfig()
+        self.project_dir = project_dir or Path(".")
+
     async def generate(self, req: GenRequest, out_dir: Path) -> GenResult:
-        raise NotImplementedError(
-            "google_flow_veo Playwright flow is not implemented yet. "
-            "See module docstring for the implementation checklist."
-        )
+        storage_state = self._resolve(self.browser_cfg.storage_state)
+        user_data_dir = self._resolve(self.browser_cfg.user_data_dir)
+        async with headed_context(
+            storage_state=storage_state,
+            user_data_dir=user_data_dir,
+        ) as ctx:
+            page = await ctx.new_page()
+            return await generate_video(page, req, out_dir)
+
+    def _resolve(self, value: str | None) -> Path | None:
+        if not value:
+            return None
+        p = Path(value)
+        if not p.is_absolute():
+            p = (self.project_dir / value).resolve()
+        return p

@@ -12,7 +12,7 @@ Design and rationale: see the approved plan referenced in the commit body, summa
 
 - Repo structure + Python package skeleton (`pyproject.toml`, `creativeforge/` package, `projects/`, `runs/`, `scripts/`, `tests/`).
 - Core abstractions: `creativeforge/config.py` (ProjectConfig), `creativeforge/state.py` (RunState), `creativeforge/stages/base.py` (Stage), `creativeforge/adapters/base.py` (Protocols + registry).
-- CLI skeleton: `creativeforge/cli.py` — `list`, `doctor`, `run --dry-run`, `resume`. `list` and `doctor` work end-to-end; `run` only prints the stage table (no orchestration yet).
+- CLI skeleton: `creativeforge/cli.py` — `list`, `doctor`, `run`, `resume`. `list`, `doctor`, and `run` (incl. `--dry-run`, `--auto-approve`, `--only`, `--from`) work end-to-end. `resume` still TODO.
 - Adapters **implemented**:
   - `audio/pixabay.py` — Pixabay music/SFX search + download (HTTP, needs `PIXABAY_API_KEY`).
   - `voice/edge_tts.py` — Microsoft Edge TTS with style-based pitch/rate (`royal`, `stern`, `tearful`, `comic`).
@@ -31,31 +31,42 @@ Design and rationale: see the approved plan referenced in the commit body, summa
   - `remotion/` — copied `src/*.tsx`, `package.json`, `tsconfig.json`. `KingsChoice.tsx` patched to import `./generated/manifest` instead of `./constants`.
   - `CONTEXT.md` + `DECISIONS.md` — initial drafts.
 
+## Completed in session 2026-05-26-b
+
+- **`creativeforge/pipeline.py`** — stage orchestration in topological order, adapter dispatch by kind (image/video/voice/audio_search/compose), per-item artifact + `.meta.json` write, `state.json` persisted after every item, `--only` / `--from` flags supported. `dry_run` skips adapter construction (so missing API keys don't block planning).
+- **`creativeforge/ui/approve.py`** — interactive per-item gate with rich table, `[a/r/e/i/s/q]` keys, `xdg-open`/`open`/`os.startfile` preview, `$EDITOR` opens `runs/<id>/prompt-overrides/<item>.yaml`. Returns aggregate decision (`approved` / `regen` / `skip` / `quit`).
+- **Edge-TTS pitch bug fix** — pitch values switched from `%` (invalid) to `Hz` (required by edge-tts). Caught while smoke-testing real voice generation.
+
+## Completed in session 2026-05-27 (Phase A scaffolding for Flow adapters)
+
+- **`creativeforge/browser/selectors.py`** — `first_visible(page, candidates, label)` walks a fallback list of locator factories and returns the first visible one; raises `SelectorMiss` with a debug dump (HTML + screenshot) on full miss. Also exposes `LoginRequired` and a `CURRENT_RUN_DIR` ContextVar so dumps land under `runs/<id>/debug/`.
+- **`creativeforge/browser/flow_imagen.py`** + **`flow_veo.py`** — full Playwright flows (navigate → model pick → aspect ratio → reference upload → prompt → submit → wait → download). Selectors are first-guess fallback chains; expect heavy iteration in the paired session.
+- **`creativeforge/adapters/image/google_flow_imagen.py`** + **`adapters/video/google_flow_veo.py`** — stubs replaced with Protocol-thin wrappers that open `headed_context` and hand the Page to the helpers. Accept `(browser_cfg, project_dir)`.
+- **`creativeforge/pipeline.py`** — `_get_adapter` injects `browser_cfg` + `project_dir` for the Flow adapters only; `_dispatch` sets `CURRENT_RUN_DIR` around the call.
+- **`scripts/login_google_flow.py`** — one-time login bootstrap (opens Flow, waits for manual sign-in, snapshots `.auth/chrome-profile/` + `.auth/google.json`).
+- Dry-run + import sanity verified in the cloud sandbox; the live UI work must happen on the user's Windows machine.
+
 ## What's NOT done — picked-up tasks
 
-### High priority (blocks pipeline running real)
+### High priority
 
-1. **Implement `pipeline.py`** (`creativeforge/pipeline.py`).
-   - Iterate stages in dependency order.
-   - For each stage: list items (from `prompts_file` `items` map or storyboard cuts), dispatch to adapter, write artifacts to `runs/<id>/stage-NN/<item>.ext` + `.meta.json`.
-   - Between stages: call `ui/approve.py` (also TODO).
-   - Persist `state.json` after every item.
+1. **Phase B: paired selector iteration** (Windows, local Claude Code session).
+   - Bootstrap: `python scripts/login_google_flow.py`.
+   - Test target: `creativeforge run musinsa-king-choice --only s00_character_sheets --auto-approve`.
+   - First-guess selectors are committed but will mostly miss. Each miss dumps `runs/<id>/debug/<ts>-<label>.{html,png}`. Iterate by prepending new candidate lambdas in `creativeforge/browser/flow_imagen.py` and `flow_veo.py`. Keep older candidates at the bottom — they self-heal across Flow A/B tests.
+   - Tools: `playwright codegen https://labs.google/fx/tools/flow --load-storage .auth/google.json`, `set PWDEBUG=1`.
 
-2. **Implement `ui/approve.py`** — interactive `[a/r/e/i/s/q]` gate with rich table + OS preview (`xdg-open` / `open`). $EDITOR integration for `[e]` prompt edits → store override in `runs/<id>/prompt-overrides/<item>.yaml`.
+2. **Regenerate loop wiring**. `ui/approve.py` reports `regen` but `pipeline._run_stage` only logs the decision. Wire `regen` → re-run flagged items in place, then re-prompt. Look for the `# Regenerations happen inline ...` comment in `pipeline.py:_run_stage`.
 
-3. **Implement Playwright adapters** (`google_flow_imagen.py`, `google_flow_veo.py`).
-   - Live UI exploration session required: headed Chromium, use DevTools to map selectors.
-   - Use `creativeforge.browser.session.headed_context` for persistence.
-   - Follow the checklists in each adapter's module docstring.
-   - **Caution**: don't try to solve captchas; let the user clear them manually.
+3. **`resume <run_id>`** — load `state.json`, find the first non-`approved` stage, restart `Pipeline` from there. The infrastructure (`RunState.load`, `--from`) exists; needs a thin wrapper that derives the start stage automatically.
 
 ### Medium priority
 
 4. Hand-edit `projects/musinsa-king-choice/CONTEXT.md` and `DECISIONS.md` — they're auto-generated drafts. Verify the "current progress" section against reality.
 5. Review `projects/musinsa-king-choice/storyboard.yaml` — speaker tags were manually corrected for cut04 (danjong) and cut09 (danjong), plus dialogue text fixed to "숙부, 어찌하여…". Other cuts looked fine on a quick check but a full pass against the original PLAN.md cuts table is still worth doing.
-6. Normalize reference IDs in `prompts/01-cut-images.yaml` and `prompts/02-cut-videos.yaml`. Currently they read `Sheet 3 (Suyang)`; should map to actual sheet IDs like `sheet3-prince-suyang-수양대군` (or simpler IDs after a slug cleanup pass).
+6. Normalize reference IDs in `prompts/01-cut-images.yaml` and `prompts/02-cut-videos.yaml`. Currently they read `Sheet 3 (Suyang)`. `pipeline._resolve_references()` does a best-effort `sheet(\d+)` regex match, but a clean slug like `sheet3-prince-suyang-수양대군` would be more robust.
 7. Sheet IDs in `prompts/00-character-sheets.yaml` carry Korean in the slug (`sheet1-king-danjong-조선-왕복-버전`). Decide: normalize to `sheet1-danjong-royal`, `sheet2-danjong-modern`, etc. and update reference fields throughout.
-8. Add `--only <stage>` and `--from <stage>` flags to `creativeforge run` once orchestration exists.
+8. `prompts/04-audio-keywords.yaml` mixes actual queries (`"japanese sad traditional"`) with style notes (`60~80 BPM (느림)`). The pixabay adapter currently treats every line as a query — prune to real queries or add a separate `queries` block.
 
 ### Low priority / v2
 
@@ -69,9 +80,11 @@ Design and rationale: see the approved plan referenced in the commit body, summa
 ```bash
 cd Video-Generator
 pip install -e .
-creativeforge doctor          # lists 5 registered adapters
-creativeforge list            # shows musinsa-king-choice
-creativeforge run musinsa-king-choice --dry-run   # prints stage table, no execution
+creativeforge doctor                                       # lists 5 registered adapters
+creativeforge list                                         # shows musinsa-king-choice
+creativeforge run musinsa-king-choice --dry-run --auto-approve   # full plan, no adapter calls
+creativeforge run musinsa-king-choice --only s03_voice --auto-approve   # real edge-tts call
+creativeforge run musinsa-king-choice --from s03_voice     # resume-style start
 ```
 
 To test the Pixabay adapter standalone:

@@ -1,11 +1,8 @@
-"""creativeforge CLI — entrypoint commands.
-
-Status: skeletal. `run` and `resume` print intended action; full pipeline orchestration
-(stage iteration, approval gate wiring, adapter dispatch) is the next session's main task.
-"""
+"""creativeforge CLI — entrypoint commands."""
 
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime
 from pathlib import Path
 
@@ -16,6 +13,7 @@ from rich.table import Table
 from creativeforge.adapters import base as _adapter_base  # ensures registry populated
 import creativeforge.adapters  # noqa: F401 — populates registry
 from creativeforge.config import ProjectConfig
+from creativeforge.pipeline import run_pipeline
 
 app = typer.Typer(add_completion=False, help="creativeforge — multi-project AI video pipeline")
 console = Console()
@@ -55,6 +53,8 @@ def run(
     project: str = typer.Argument(..., help="project id (folder name under projects/)"),
     dry_run: bool = typer.Option(False, "--dry-run", help="Skip adapter calls; print plan only."),
     auto_approve: bool = typer.Option(False, "--auto-approve", help="Skip approval gates."),
+    only: str = typer.Option(None, "--only", help="Run only this stage id."),
+    from_stage: str = typer.Option(None, "--from", help="Start from this stage id."),
 ) -> None:
     """Run a project's pipeline end-to-end (stage by stage)."""
     project_dir = Path("projects") / project
@@ -63,14 +63,14 @@ def run(
         raise typer.Exit(1)
 
     cfg = ProjectConfig.load(project_dir)
-    run_id = datetime.now().strftime("%Y-%m-%d-") + project + "-" + datetime.now().strftime("%H%M%S")
+    now = datetime.now()
+    run_id = now.strftime("%Y-%m-%d-") + project + "-" + now.strftime("%H%M%S")
     run_dir = Path("runs") / run_id
 
     console.print(f"[green]Project:[/green] {cfg.project.title} ({cfg.project.id})")
     console.print(f"[green]Run id:[/green] {run_id}")
     console.print(f"[green]Run dir:[/green] {run_dir}")
-    console.print(f"[green]Dry run:[/green] {dry_run}")
-    console.print(f"[green]Auto approve:[/green] {auto_approve}")
+    console.print(f"[green]Dry run:[/green] {dry_run}  [green]Auto approve:[/green] {auto_approve}")
 
     table = Table(title="Stages")
     table.add_column("stage")
@@ -81,10 +81,16 @@ def run(
         table.add_row(sid, spec.adapter, spec.model or "-", "yes" if spec.enabled else "no")
     console.print(table)
 
-    console.print(
-        "\n[yellow]Pipeline orchestration is not yet wired. "
-        "Next session: implement creativeforge.pipeline.run() that iterates stages, "
-        "dispatches adapters, and calls creativeforge.ui.approve.approve_stage between them.[/yellow]"
+    asyncio.run(
+        run_pipeline(
+            cfg=cfg,
+            project_dir=project_dir,
+            run_dir=run_dir,
+            dry_run=dry_run,
+            auto_approve=auto_approve,
+            only=only,
+            from_stage=from_stage,
+        )
     )
 
 
