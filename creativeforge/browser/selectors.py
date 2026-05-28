@@ -12,7 +12,7 @@ from __future__ import annotations
 from contextvars import ContextVar
 from datetime import datetime
 from pathlib import Path
-from typing import Awaitable, Callable
+from typing import Callable
 
 from playwright.async_api import Locator, Page
 

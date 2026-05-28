@@ -9,17 +9,16 @@ Keys per item:
     s — skip this item
     q — abort the run
 
-The gate writes per-item decisions to `<run>/state.json` (via the stage record
-already written by the pipeline) and returns one of: `approved`, `regen`,
-`skip`, `quit`. For MVP, `regen` is reported but actual re-run isn't wired in
-yet — see HANDOFF.md for the follow-up.
+The gate returns ``(decision, regen_ids)`` — the decision is one of `approved`,
+`regen`, `skip`, `quit`, and `regen_ids` holds the items marked `[r]`/`[e]`. The
+pipeline (`Pipeline._run_stage`) re-runs exactly those items and re-opens the
+gate until the stage is approved/skipped/quit.
 """
 
 from __future__ import annotations
 
 import json
 import os
-import platform
 import shutil
 import subprocess
 import sys
