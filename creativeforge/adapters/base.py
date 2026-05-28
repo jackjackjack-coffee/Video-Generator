@@ -17,6 +17,7 @@ class GenRequest(BaseModel):
 
 class GenResult(BaseModel):
     path: Path
+    variant_paths: list[Path] = Field(default_factory=list)
     source_url: str | None = None
     model_used: str
     raw_meta: dict = Field(default_factory=dict)

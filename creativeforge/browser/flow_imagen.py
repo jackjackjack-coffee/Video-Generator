@@ -174,16 +174,12 @@ async def _wait_for_variants(page: Page, *, expected: int = 4, timeout_ms: int =
     await expect(grid_item.locator("xpath=..").locator("> *")).to_have_count(expected, timeout=timeout_ms)
 
 
-async def _download_first_variant(page: Page, dest: Path) -> Path:
-    variant = await first_visible(
-        page,
-        [
-            lambda p: p.locator("[data-testid*=result]").first,
-            lambda p: p.locator("img[alt*='generated' i]").first,
-        ],
-        label="variant_thumb",
-    )
-    await variant.click()
+def _variant_thumbs(p: Page):
+    """Locator for the rendered variant thumbnails. First-guess fallback chain."""
+    return p.locator("[data-testid*=result]")
+
+
+async def _download_one(page: Page, dest: Path) -> Path:
     dl_btn = await first_visible(
         page,
         [
@@ -199,6 +195,52 @@ async def _download_first_variant(page: Page, dest: Path) -> Path:
     dest.parent.mkdir(parents=True, exist_ok=True)
     await download.save_as(str(dest))
     return dest
+
+
+async def _download_all_variants(
+    page: Page, out_dir: Path, item_id: str, ext: str = ".png"
+) -> tuple[Path, list[Path]]:
+    """Download every rendered variant to `<item>-v{i}{ext}` and copy v0 to the
+    canonical `<item>{ext}`. Returns (canonical_path, [variant paths]).
+
+    Selectors are first-guess (Phase B refines them). On any miss, falls back to
+    downloading whatever single variant is reachable.
+    """
+    import shutil
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+    variants: list[Path] = []
+    try:
+        thumbs = _variant_thumbs(page)
+        count = await thumbs.count()
+    except Exception:
+        count = 0
+
+    if count <= 0:
+        # Fallback: grab whatever single variant is visible.
+        single = await first_visible(
+            page,
+            [
+                lambda p: _variant_thumbs(p).first,
+                lambda p: p.locator("img[alt*='generated' i]").first,
+            ],
+            label="variant_thumb",
+        )
+        await single.click()
+        variants.append(await _download_one(page, out_dir / f"{item_id}-v0{ext}"))
+    else:
+        for i in range(count):
+            try:
+                await thumbs.nth(i).click()
+                variants.append(await _download_one(page, out_dir / f"{item_id}-v{i}{ext}"))
+            except Exception as e:
+                print(f"[imagen] variant {i} download failed: {e}")
+
+    if not variants:
+        raise RuntimeError("no variants downloaded")
+    canonical = out_dir / f"{item_id}{ext}"
+    shutil.copyfile(variants[0], canonical)
+    return canonical, variants
 
 
 async def generate_image(page: Page, req: "GenRequest", out_dir: Path) -> "GenResult":
@@ -218,10 +260,14 @@ async def generate_image(page: Page, req: "GenRequest", out_dir: Path) -> "GenRe
     await _submit(page)
     await _wait_for_variants(page, expected=4)
     await capture_process_shot(page, out_dir, item_id, "3-generated")
-    dest = out_dir / f"{item_id}.png"
-    path = await _download_first_variant(page, dest)
+    canonical, variants = await _download_all_variants(page, out_dir, item_id, ".png")
     return GenResult(
-        path=path,
+        path=canonical,
+        variant_paths=variants,
         model_used=req.model or "imagen-4-ultra",
-        raw_meta={"item_id": item_id, "variant_index": 0, "aspect_ratio": req.aspect_ratio},
+        raw_meta={
+            "item_id": item_id,
+            "variant_count": len(variants),
+            "aspect_ratio": req.aspect_ratio,
+        },
     )

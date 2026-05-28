@@ -1,18 +1,26 @@
 # Per-cut video model allocation under the 1000-credit monthly budget.
-#   veo-3.1-high-quality = 100 cr/video   (hero cuts)
-#   veo-3.1-fast         =  20 cr/video
+#   veo-3.1-high-quality = 100 cr/video   (final polish of hero cuts)
+#   veo-3.1-fast         =  20 cr/video   (draft pass — everything starts here)
 #   veo-3.1-lite         =  10 cr/video
 #   omni-flash           =  duration-based (4s:15 6s:20 8s:25 10s:30)
 # source: flow (default, draws from the 1000 pool) | gemini (separate Omni pool)
+#
+# DRAFT-FIRST WORKFLOW (chosen to avoid burning 100 cr on an unseen prompt):
+#   Pass 1 — draft: all 9 cuts on veo-3.1-fast = 9 x 20 = 180 cr. Run the stage,
+#            review every clip at the approval gate, fix prompts and regen until
+#            the content/composition is right.
+#   Pass 2 — polish: once approved, flip the ~5 HERO cuts back to
+#            veo-3.1-high-quality (~500 cr) and regen ONLY those via the gate's
+#            [r] key or `creativeforge run musinsa-king-choice --only s02_cut_videos`.
+#   Worst-case total ~680 cr — comfortably under the 1000 budget.
 # Run `creativeforge credits musinsa-king-choice` to see the live budget breakdown.
-# Current allocation totals ~580 cr, leaving ~420 for regenerations.
 defaults:
   aspect_ratio: 9:16
 items:
   cut01:
     label: 수양대군 등장
     style: drama
-    model: veo-3.1-high-quality   # opening hook — first impression
+    model: veo-3.1-fast   # HERO — upgrade to veo-3.1-high-quality for the final polish pass (opening hook)
     variants: 1
     duration_s: 3
     source: flow
@@ -60,7 +68,7 @@ items:
   cut05:
     label: 단종 무진장 절규
     style: drama
-    model: veo-3.1-high-quality   # emotional climax — the "무진장" line
+    model: veo-3.1-fast   # HERO — upgrade to veo-3.1-high-quality for the final polish pass (emotional climax, the "무진장" line)
     variants: 1
     duration_s: 3
     source: flow
@@ -72,7 +80,7 @@ items:
   cut06:
     label: 변신 시퀀스
     style: fashion
-    model: veo-3.1-high-quality   # transformation reveal — the visual turning point
+    model: veo-3.1-fast   # HERO — upgrade to veo-3.1-high-quality for the final polish pass (transformation reveal)
     variants: 1
     duration_s: 3
     source: flow
@@ -85,7 +93,7 @@ items:
   cut07:
     label: 단종 현대 패션 선포
     style: fashion
-    model: veo-3.1-high-quality   # fashion declaration — Musinsa brand moment
+    model: veo-3.1-fast   # HERO — upgrade to veo-3.1-high-quality for the final polish pass (fashion declaration, Musinsa brand moment)
     variants: 1
     duration_s: 3
     source: flow
@@ -110,7 +118,7 @@ items:
   cut09:
     label: 조정 → 궁문 행진 + 문 닫힘 (3초) ⭐ NEW
     style: fashion
-    model: veo-3.1-high-quality   # epic finale — last shot before title card
+    model: veo-3.1-fast   # HERO — upgrade to veo-3.1-high-quality for the final polish pass (epic finale, last shot before title card)
     variants: 1
     duration_s: 3
     source: flow

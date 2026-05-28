@@ -200,7 +200,12 @@ async def _wait_for_render(page: Page, *, timeout_ms: int = 600_000) -> None:
     raise TimeoutError("Veo render did not complete within timeout")
 
 
-async def _download_result(page: Page, dest: Path) -> Path:
+def _result_clips(p: Page):
+    """Locator for the rendered video variants. First-guess fallback chain."""
+    return p.locator("video, [data-testid*=result]")
+
+
+async def _download_one(page: Page, dest: Path) -> Path:
     dl_btn = await first_visible(
         page,
         [
@@ -216,6 +221,42 @@ async def _download_result(page: Page, dest: Path) -> Path:
     dest.parent.mkdir(parents=True, exist_ok=True)
     await download.save_as(str(dest))
     return dest
+
+
+async def _download_all_variants(
+    page: Page, out_dir: Path, item_id: str, ext: str = ".mp4"
+) -> tuple[Path, list[Path]]:
+    """Download every rendered video variant to `<item>-v{i}{ext}` and copy v0 to
+    the canonical `<item>{ext}`. Returns (canonical_path, [variant paths]).
+
+    Selectors are first-guess (Phase B refines them). On any miss, falls back to
+    downloading whatever single clip is reachable.
+    """
+    import shutil
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+    variants: list[Path] = []
+    try:
+        clips = _result_clips(page)
+        count = await clips.count()
+    except Exception:
+        count = 0
+
+    if count <= 1:
+        variants.append(await _download_one(page, out_dir / f"{item_id}-v0{ext}"))
+    else:
+        for i in range(count):
+            try:
+                await clips.nth(i).click()
+                variants.append(await _download_one(page, out_dir / f"{item_id}-v{i}{ext}"))
+            except Exception as e:
+                print(f"[veo] variant {i} download failed: {e}")
+
+    if not variants:
+        raise RuntimeError("no variants downloaded")
+    canonical = out_dir / f"{item_id}{ext}"
+    shutil.copyfile(variants[0], canonical)
+    return canonical, variants
 
 
 async def generate_video(page: Page, req: "GenRequest", out_dir: Path) -> "GenResult":
@@ -237,15 +278,16 @@ async def generate_video(page: Page, req: "GenRequest", out_dir: Path) -> "GenRe
     await _submit(page)
     await _wait_for_render(page)
     await capture_process_shot(page, out_dir, item_id, "3-generated")
-    dest = out_dir / f"{item_id}.mp4"
-    path = await _download_result(page, dest)
+    canonical, variant_paths = await _download_all_variants(page, out_dir, item_id, ".mp4")
     return GenResult(
-        path=path,
+        path=canonical,
+        variant_paths=variant_paths,
         model_used=req.model or "veo-3.1-high-quality",
         raw_meta={
             "item_id": item_id,
             "had_reference": bool(req.references),
             "variants": variants,
+            "variant_count": len(variant_paths),
             "duration_s": req.extra.get("duration_s"),
         },
     )

@@ -4,7 +4,8 @@ Keys per item:
     a — approve
     r — mark for regenerate (writes a marker in prompt-overrides/ so caller can re-run)
     e — open $EDITOR on the prompt override; auto-marks for regenerate
-    i — inspect / open artifact in OS default viewer (xdg-open / open / start)
+    i — inspect / open artifact(s) in OS default viewer (xdg-open / open / start)
+    v — pick which generated variant to keep (when more than one was rendered)
     s — skip this item
     q — abort the run
 
@@ -33,7 +34,34 @@ Decision = Literal["approved", "regen", "skip", "quit"]
 ApproveResult = tuple[Decision, list[str]]  # (decision, regen_item_ids)
 console = Console()
 
-VALID_KEYS = {"a", "r", "e", "i", "s", "q"}
+VALID_KEYS = {"a", "r", "e", "i", "v", "s", "q"}
+
+
+def select_variant(
+    run_dir: Path, stage_dir: Path, stage_id: str, item_id: str, index: int
+) -> Path:
+    """Promote variant `index` to the canonical artifact for `item_id`.
+
+    Copies the chosen variant over `stage_dir/<item_id><ext>` and rewrites that
+    item's `path` in `state.json`. Returns the canonical path. Raises IndexError
+    if the item has no variant at `index`.
+    """
+    items = _load_stage_items(run_dir, stage_id)
+    info = items.get(item_id) or {}
+    variants = info.get("paths") or ([info["path"]] if info.get("path") else [])
+    if not 0 <= index < len(variants):
+        raise IndexError(f"{item_id}: no variant {index} (have {len(variants)})")
+
+    chosen = Path(variants[index])
+    canonical = stage_dir / f"{item_id}{chosen.suffix}"
+    if chosen.resolve() != canonical.resolve():
+        shutil.copyfile(chosen, canonical)
+
+    state_path = run_dir / "state.json"
+    data = json.loads(state_path.read_text())
+    data["stages"][stage_id]["items"][item_id]["path"] = str(canonical)
+    state_path.write_text(json.dumps(data, indent=2, ensure_ascii=False))
+    return canonical
 
 
 def _open_in_os(path: Path) -> None:
@@ -112,11 +140,14 @@ async def approve_stage(stage_id: str, stage_dir: Path, run_dir: Path) -> "Appro
     all_skipped = True
 
     for item_id, info in items.items():
-        artifact_path: Path | None = None
-        if info.get("path"):
-            artifact_path = Path(info["path"])
-        elif info.get("paths"):
-            artifact_path = Path(info["paths"][0])
+        variant_paths = [Path(p) for p in (info.get("paths") or [])]
+        if not variant_paths and info.get("path"):
+            variant_paths = [Path(info["path"])]
+        artifact_path = Path(info["path"]) if info.get("path") else (
+            variant_paths[0] if variant_paths else None
+        )
+        if len(variant_paths) > 1:
+            console.print(f"    [dim]{len(variant_paths)} variants — press [v] to pick the best[/dim]")
 
         while True:
             choice = Prompt.ask(
@@ -129,10 +160,30 @@ async def approve_stage(stage_id: str, stage_dir: Path, run_dir: Path) -> "Appro
                 console.print("    [red]invalid key[/red]")
                 continue
             if choice == "i":
-                if artifact_path:
-                    _open_in_os(artifact_path)
+                to_open = variant_paths or ([artifact_path] if artifact_path else [])
+                if to_open:
+                    for p in to_open:
+                        _open_in_os(p)
                 else:
                     console.print("    [yellow]no artifact to inspect[/yellow]")
+                continue
+            if choice == "v":
+                if len(variant_paths) <= 1:
+                    console.print("    [yellow]only one variant — nothing to pick[/yellow]")
+                    continue
+                raw = Prompt.ask(
+                    f"    variant index [0-{len(variant_paths) - 1}]", default="0"
+                ).strip()
+                if not raw.isdigit():
+                    console.print("    [red]not a number[/red]")
+                    continue
+                try:
+                    chosen = select_variant(run_dir, stage_dir, stage_id, item_id, int(raw))
+                except IndexError as e:
+                    console.print(f"    [red]{e}[/red]")
+                    continue
+                artifact_path = chosen
+                console.print(f"    [green]kept variant {raw} → {chosen.name}[/green]")
                 continue
             if choice == "e":
                 prompt_text = ""

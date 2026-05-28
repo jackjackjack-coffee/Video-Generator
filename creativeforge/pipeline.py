@@ -221,7 +221,13 @@ class Pipeline:
                 result: GenResult = await adapter.generate(req, stage_dir)
                 self._write_meta(stage_dir, item.id, result, item, started)
                 self.state.record_model(spec.adapter, result.model_used)
-                info = {"status": "ok", "path": str(result.path), "model": result.model_used}
+                variant_paths = result.variant_paths or [result.path]
+                info = {
+                    "status": "ok",
+                    "path": str(result.path),
+                    "paths": [str(p) for p in variant_paths],
+                    "model": result.model_used,
+                }
                 if kind == "video":
                     from creativeforge.credits import estimate_item
 

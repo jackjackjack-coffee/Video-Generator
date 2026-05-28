@@ -165,7 +165,8 @@ class TestCredits:
         cfg = ProjectConfig.load(PROJECT_DIR)
         plan = plan_video_credits(PROJECT_DIR, cfg)
         assert plan is not None
-        assert plan["totals"]["flow"] == 580
+        # Draft-first: all 9 cuts start on veo-3.1-fast (9 x 20 = 180).
+        assert plan["totals"]["flow"] == 180
         assert plan["totals"]["flow"] <= cfg.credits.monthly_budget
 
 
@@ -207,3 +208,68 @@ class TestRegenLoop:
         assert dispatch_calls.count("cut03") == 2
         for cid in ("cut01", "cut02", "cut04", "cut05", "cut06", "cut07", "cut08", "cut09"):
             assert dispatch_calls.count(cid) == 1
+
+
+class TestVariantSelection:
+    def test_select_variant_promotes_chosen_index(self, tmp_path):
+        import json
+        from creativeforge.ui.approve import select_variant
+
+        run_dir = tmp_path
+        stage_id = "s01_cut_images"
+        stage_dir = run_dir / "stage-01-cut-images"
+        stage_dir.mkdir(parents=True)
+        variants = []
+        for i in range(4):
+            p = stage_dir / f"cut01-v{i}.png"
+            p.write_text(f"variant-{i}")
+            variants.append(str(p))
+        # canonical currently = v0
+        canonical_seed = stage_dir / "cut01.png"
+        canonical_seed.write_text("variant-0")
+
+        state = {
+            "stages": {
+                stage_id: {
+                    "status": "generated",
+                    "items": {
+                        "cut01": {"status": "ok", "path": str(canonical_seed), "paths": variants}
+                    },
+                }
+            }
+        }
+        (run_dir / "state.json").write_text(json.dumps(state))
+
+        result = select_variant(run_dir, stage_dir, stage_id, "cut01", 2)
+        assert result.name == "cut01.png"
+        assert result.read_text() == "variant-2"
+        # state path now points at the canonical artifact
+        reloaded = json.loads((run_dir / "state.json").read_text())
+        assert reloaded["stages"][stage_id]["items"]["cut01"]["path"] == str(result)
+
+    def test_select_variant_out_of_range_raises(self, tmp_path):
+        import json
+        from creativeforge.ui.approve import select_variant
+
+        stage_dir = tmp_path / "stage-01-cut-images"
+        stage_dir.mkdir(parents=True)
+        v0 = stage_dir / "cut01-v0.png"
+        v0.write_text("v0")
+        state = {
+            "stages": {
+                "s01_cut_images": {
+                    "items": {"cut01": {"path": str(v0), "paths": [str(v0)]}}
+                }
+            }
+        }
+        (tmp_path / "state.json").write_text(json.dumps(state))
+        with pytest.raises(IndexError):
+            select_variant(tmp_path, stage_dir, "s01_cut_images", "cut01", 3)
+
+    def test_genresult_without_variants_exposes_single_path(self):
+        from creativeforge.adapters.base import GenResult
+
+        r = GenResult(path=Path("/tmp/x.png"), model_used="imagen-4-ultra")
+        assert r.variant_paths == []
+        # pipeline treats empty variant_paths as [path]
+        assert (r.variant_paths or [r.path]) == [Path("/tmp/x.png")]
