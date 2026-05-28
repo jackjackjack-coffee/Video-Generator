@@ -47,7 +47,7 @@ async def _maybe_handle_captcha(page: Page) -> None:
     except Exception:
         return
     print("\n[captcha] Solve the challenge in the open browser window, then press ENTER here.")
-    await asyncio.get_event_loop().run_in_executor(None, input)
+    await asyncio.get_running_loop().run_in_executor(None, input)
 
 
 async def _open_image_tool(page: Page) -> None:

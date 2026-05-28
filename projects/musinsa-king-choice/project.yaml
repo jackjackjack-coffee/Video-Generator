@@ -29,7 +29,8 @@ stages:
   s03_voice:
     adapter: edge_tts
     voice: ko-KR-InJoonNeural
-    fallback_adapter: clova
+    # fallback_adapter not implemented yet — no `clova` adapter is registered
+    # (doctor lists only edge_tts/pixabay/remotion/google_flow_*). See CLAUDE.md → Voice.
     enabled: true
   s04_audio:
     adapter: pixabay

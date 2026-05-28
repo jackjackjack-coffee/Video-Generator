@@ -40,7 +40,7 @@ async def _maybe_handle_captcha(page: Page) -> None:
     except Exception:
         return
     print("\n[captcha] Solve the challenge in the open browser window, then press ENTER here.")
-    await asyncio.get_event_loop().run_in_executor(None, input)
+    await asyncio.get_running_loop().run_in_executor(None, input)
 
 
 async def _open_video_tool(page: Page) -> None:
@@ -148,8 +148,9 @@ async def _submit(page: Page) -> None:
 
 async def _wait_for_render(page: Page, *, timeout_ms: int = 600_000) -> None:
     """Poll until either a 'done'/'completed' indicator appears or credit_exhausted."""
-    deadline = asyncio.get_event_loop().time() + timeout_ms / 1000
-    while asyncio.get_event_loop().time() < deadline:
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + timeout_ms / 1000
+    while loop.time() < deadline:
         # Credit-exhausted short-circuit.
         try:
             err = page.get_by_text(re.compile(r"credit|quota|limit\s*exhausted|out\s*of", re.I)).first

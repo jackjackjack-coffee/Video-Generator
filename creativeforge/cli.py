@@ -14,6 +14,7 @@ from creativeforge.adapters import base as _adapter_base  # ensures registry pop
 import creativeforge.adapters  # noqa: F401 — populates registry
 from creativeforge.config import ProjectConfig
 from creativeforge.pipeline import run_pipeline
+from creativeforge.state import RunState
 
 app = typer.Typer(add_completion=False, help="creativeforge — multi-project AI video pipeline")
 console = Console()
@@ -95,13 +96,34 @@ def run(
 
 
 @app.command()
-def resume(run_id: str) -> None:
-    """Resume an existing run from its last incomplete stage."""
+def resume(
+    run_id: str,
+    auto_approve: bool = typer.Option(False, "--auto-approve", help="Skip approval gates."),
+) -> None:
+    """Resume an existing run from its first incomplete stage."""
     run_dir = Path("runs") / run_id
     if not (run_dir / "state.json").exists():
         console.print(f"[red]No state.json at {run_dir}[/red]")
         raise typer.Exit(1)
-    console.print(f"[yellow]resume not implemented yet — would pick up from state.json at {run_dir}[/yellow]")
+
+    state = RunState.load(run_dir)
+    project = state.data.get("project")
+    project_dir = Path("projects") / str(project)
+    if not project or not project_dir.exists():
+        console.print(f"[red]Cannot locate project '{project}' for this run.[/red]")
+        raise typer.Exit(1)
+
+    cfg = ProjectConfig.load(project_dir)
+    console.print(f"[green]Resuming run:[/green] {run_id}  [green]project:[/green] {project}")
+    asyncio.run(
+        run_pipeline(
+            cfg=cfg,
+            project_dir=project_dir,
+            run_dir=run_dir,
+            auto_approve=auto_approve,
+            resume=True,
+        )
+    )
 
 
 if __name__ == "__main__":

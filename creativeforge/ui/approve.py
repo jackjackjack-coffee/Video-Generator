@@ -8,17 +8,16 @@ Keys per item:
     s — skip this item
     q — abort the run
 
-The gate writes per-item decisions to `<run>/state.json` (via the stage record
-already written by the pipeline) and returns one of: `approved`, `regen`,
-`skip`, `quit`. For MVP, `regen` is reported but actual re-run isn't wired in
-yet — see HANDOFF.md for the follow-up.
+The gate returns `(decision, regen_ids)` where decision is one of `approved`,
+`regen`, `skip`, `quit`. When items are marked `[r]` or `[e]`, their ids are
+returned in `regen_ids`; the pipeline re-runs exactly those items, then
+re-opens the gate on the refreshed artifacts (see `Pipeline._run_stage`).
 """
 
 from __future__ import annotations
 
 import json
 import os
-import platform
 import shutil
 import subprocess
 import sys
@@ -88,26 +87,28 @@ def _render_table(stage_id: str, items: dict[str, dict], stage_dir: Path) -> Non
     console.print(table)
 
 
-async def approve_stage(stage_id: str, stage_dir: Path, run_dir: Path) -> Decision:
+async def approve_stage(
+    stage_id: str, stage_dir: Path, run_dir: Path
+) -> tuple[Decision, list[str]]:
     """Walk through all items in a stage, prompting per item.
 
-    Returns the aggregate decision:
+    Returns `(decision, regen_ids)`:
       - `quit`     if user pressed `q` at any point
-      - `regen`    if any item was marked for regenerate (caller decides what to do)
+      - `regen`    + the ids marked `[r]`/`[e]` for the caller to re-run
       - `skip`     if all items were skipped
       - `approved` otherwise (default)
     """
     items = _load_stage_items(run_dir, stage_id)
     if not items:
         console.print(f"[dim]{stage_id}: nothing to approve[/dim]")
-        return "approved"
+        return "approved", []
 
     _render_table(stage_id, items, stage_dir)
     console.print(
         "[dim]keys: [a]pprove  [r]egenerate  [e]dit prompt  [i]nspect  [s]kip  [q]uit[/dim]"
     )
 
-    any_regen = False
+    regen_ids: list[str] = []
     all_skipped = True
 
     for item_id, info in items.items():
@@ -142,12 +143,12 @@ async def approve_stage(stage_id: str, stage_dir: Path, run_dir: Path) -> Decisi
                     except Exception:
                         pass
                 _edit_override(run_dir, item_id, prompt_text)
-                any_regen = True
+                regen_ids.append(item_id)
                 all_skipped = False
                 console.print("    [yellow]marked for regenerate[/yellow]")
                 break
             if choice == "r":
-                any_regen = True
+                regen_ids.append(item_id)
                 all_skipped = False
                 console.print("    [yellow]marked for regenerate[/yellow]")
                 break
@@ -157,10 +158,10 @@ async def approve_stage(stage_id: str, stage_dir: Path, run_dir: Path) -> Decisi
             if choice == "s":
                 break
             if choice == "q":
-                return "quit"
+                return "quit", []
 
-    if any_regen:
-        return "regen"
+    if regen_ids:
+        return "regen", regen_ids
     if all_skipped:
-        return "skip"
-    return "approved"
+        return "skip", []
+    return "approved", []

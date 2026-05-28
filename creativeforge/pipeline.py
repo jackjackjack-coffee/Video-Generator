@@ -21,10 +21,8 @@ Stage directory layout:
 
 from __future__ import annotations
 
-import asyncio
 import json
 import re
-import shutil
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -82,6 +80,7 @@ class Pipeline:
         auto_approve: bool = False,
         only: str | None = None,
         from_stage: str | None = None,
+        resume: bool = False,
     ):
         self.cfg = cfg
         self.project_dir = project_dir
@@ -90,6 +89,7 @@ class Pipeline:
         self.auto_approve = auto_approve
         self.only = only
         self.from_stage = from_stage
+        self.resume = resume
         self.state: RunState | None = None
         self._adapters: dict[str, Any] = {}
 
@@ -97,13 +97,25 @@ class Pipeline:
 
     async def run(self) -> None:
         self.run_dir.mkdir(parents=True, exist_ok=True)
-        self.state = RunState.create(
-            self.run_dir,
-            project_id=self.cfg.project.id,
-            config_snapshot=self.cfg.model_dump(mode="json"),
-        )
+        if self.resume:
+            self.state = RunState.load(self.run_dir)
+        else:
+            self.state = RunState.create(
+                self.run_dir,
+                project_id=self.cfg.project.id,
+                config_snapshot=self.cfg.model_dump(mode="json"),
+            )
 
         order = self._topo_order()
+        if self.resume and not self.from_stage and not self.only:
+            start = self._first_incomplete_stage(order)
+            if start is None:
+                console.print(
+                    "[green]Nothing to resume — all stages already approved/skipped.[/green]"
+                )
+                return
+            console.print(f"[cyan]Resuming from {start}[/cyan]")
+            order = order[order.index(start) :]
         if self.from_stage:
             if self.from_stage not in order:
                 raise StageError(f"--from {self.from_stage}: stage not in plan")
@@ -137,10 +149,12 @@ class Pipeline:
         console.rule(f"[bold cyan]{stage_id}[/bold cyan]  adapter={spec.adapter}  kind={kind}")
         self.state.set_stage_status(stage_id, "running")
 
+        items_by_id: dict[str, Item] = {}
         if kind == "compose":
             await self._run_compose(stage_id, spec, stage_dir)
         else:
             items = list(self._resolve_items(stage_id, spec, kind))
+            items_by_id = {it.id: it for it in items}
             if not items:
                 console.print(f"[yellow]{stage_id}: no items to process[/yellow]")
             for it in items:
@@ -151,12 +165,25 @@ class Pipeline:
         if kind != "compose" and not self.auto_approve and self.cfg.approval.mode == "gate":
             from creativeforge.ui.approve import approve_stage
 
-            decision = await approve_stage(stage_id, stage_dir, self.run_dir)
-            if decision == "quit":
-                self.state.set_stage_status(stage_id, "aborted")
-                raise StageError(f"User aborted at {stage_id}")
-            # Regenerations happen inline inside approve_stage via the regen callback
-            # (it calls back into the pipeline). For MVP we just record approval here.
+            # Approval loop: regenerate flagged items in place, then re-open the gate
+            # on the refreshed artifacts. Terminates on approve / skip / quit.
+            while True:
+                decision, regen_ids = await approve_stage(stage_id, stage_dir, self.run_dir)
+                if decision == "quit":
+                    self.state.set_stage_status(stage_id, "aborted")
+                    raise StageError(f"User aborted at {stage_id}")
+                regen_ids = [rid for rid in regen_ids if rid in items_by_id]
+                if not regen_ids:
+                    break
+                console.print(
+                    f"[cyan]↻ regenerating {len(regen_ids)} item(s): {', '.join(regen_ids)}[/cyan]"
+                )
+                self.state.set_stage_status(stage_id, "running")
+                for rid in regen_ids:
+                    await self._run_item_with_gate(
+                        stage_id, spec, kind, stage_dir, items_by_id[rid]
+                    )
+                self.state.set_stage_status(stage_id, "generated")
 
         self.state.set_stage_status(stage_id, "approved")
 
@@ -408,6 +435,14 @@ class Pipeline:
         with path.open() as f:
             return yaml.load(f) or {}
 
+    def _first_incomplete_stage(self, order: list[str]) -> str | None:
+        """First stage (in topo order) whose status isn't approved/skipped."""
+        done = {"approved", "skipped"}
+        for sid in order:
+            if self.state.stage(sid).get("status") not in done:
+                return sid
+        return None
+
     def _topo_order(self) -> list[str]:
         stages = self.cfg.stages
         order: list[str] = []
@@ -442,6 +477,7 @@ async def run_pipeline(
     auto_approve: bool = False,
     only: str | None = None,
     from_stage: str | None = None,
+    resume: bool = False,
 ) -> None:
     p = Pipeline(
         cfg=cfg,
@@ -451,5 +487,6 @@ async def run_pipeline(
         auto_approve=auto_approve,
         only=only,
         from_stage=from_stage,
+        resume=resume,
     )
     await p.run()
