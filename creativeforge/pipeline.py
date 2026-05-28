@@ -47,6 +47,7 @@ ADAPTER_KIND: dict[str, str] = {
     "google_flow_imagen": "image",
     "google_flow_veo": "video",
     "edge_tts": "voice",
+    "voicebox": "voice",
     "pixabay": "audio_search",
     "remotion": "compose",
 }

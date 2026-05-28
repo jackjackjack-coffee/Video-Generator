@@ -66,6 +66,14 @@ def doctor() -> None:
     except ImportError:
         _row("edge_tts", False, "pip install edge-tts")
 
+    voicebox_url = os.environ.get("VOICEBOX_URL", "http://127.0.0.1:17493")
+    try:
+        import httpx as _httpx
+        r = _httpx.get(voicebox_url, timeout=0.5)
+        _row("voicebox", True, f"{voicebox_url} reachable")
+    except Exception:
+        _row("voicebox", False, f"start the Voicebox app — {voicebox_url} (needed for commercial dub)")
+
     npm = shutil.which("npm")
     npx = shutil.which("npx")
     _row("npm", bool(npm), npm or "not found — needed for s05_compose")

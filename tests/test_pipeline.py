@@ -273,3 +273,56 @@ class TestVariantSelection:
         assert r.variant_paths == []
         # pipeline treats empty variant_paths as [path]
         assert (r.variant_paths or [r.path]) == [Path("/tmp/x.png")]
+
+
+class TestVoiceboxAdapter:
+    def test_synthesize_writes_file_and_returns_genresult(self, tmp_path):
+        import asyncio
+        from unittest.mock import AsyncMock, patch
+        from creativeforge.adapters.voice.voicebox import VoiceboxAdapter
+
+        adapter = VoiceboxAdapter()
+        fake_bytes = b"RIFF....WAVEfmt "
+
+        with patch.object(adapter, "_generate_audio", new=AsyncMock(return_value=(fake_bytes, ".wav"))):
+            result = asyncio.run(
+                adapter.synthesize(
+                    text="역적들을 처단하였사옵니다.",
+                    voice="af_heart",
+                    out_dir=tmp_path,
+                    style="stern",
+                    item_id="cut03",
+                )
+            )
+
+        assert result.path.exists()
+        assert result.path.name == "cut03.wav"
+        assert result.path.read_bytes() == fake_bytes
+        assert result.model_used == "voicebox/af_heart"
+        assert result.raw_meta["style"] == "stern"
+        assert result.raw_meta["engine"] == "voicebox"
+
+    def test_synthesize_slug_fallback_when_no_item_id(self, tmp_path):
+        import asyncio
+        from unittest.mock import AsyncMock, patch
+        from creativeforge.adapters.voice.voicebox import VoiceboxAdapter
+
+        adapter = VoiceboxAdapter()
+
+        with patch.object(adapter, "_generate_audio", new=AsyncMock(return_value=(b"audio", ".mp3"))):
+            result = asyncio.run(
+                adapter.synthesize(
+                    text="Hello world",
+                    voice="bf_emma",
+                    out_dir=tmp_path,
+                )
+            )
+
+        assert result.path.suffix == ".mp3"
+        assert result.path.exists()
+
+    def test_voicebox_registered(self):
+        import creativeforge.adapters  # noqa: F401 — populates registry
+        from creativeforge.adapters import base
+
+        assert "voicebox" in base.list_adapters()

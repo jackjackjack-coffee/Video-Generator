@@ -58,3 +58,69 @@ first-guess fallback chains. On a miss, `first_visible` dumps
 `runs/<id>/debug/<ts>-<label>.{html,png}`. Prepend new candidate lambdas; keep old
 ones at the bottom — they self-heal across Flow A/B tests. Never delete a
 candidate unless it's verifiably dead.
+
+## Voice strategy: edge-tts (scratch) vs. Voicebox (commercial final)
+
+| Adapter | License | Use for | Requires |
+|---------|---------|---------|---------|
+| `edge_tts` | Unofficial MS endpoint | Draft / cloud testing | `pip install edge-tts` |
+| `voicebox` | Kokoro Apache-2.0 / Chatterbox-Turbo MIT | **Commercial final dub** | Voicebox app running locally |
+
+**To switch to Voicebox for the final commercial dub:**
+1. Open `projects/musinsa-king-choice/project.yaml` → `s03_voice`.
+2. Comment out `adapter: edge_tts` and uncomment `adapter: voicebox`.
+3. Change `voice:` to a Voicebox profile name (browse available profiles at `http://127.0.0.1:17493/docs`).
+4. Launch the Voicebox app on your Windows machine.
+5. Run `creativeforge run musinsa-king-choice --only s03_voice`.
+
+**Caveats:**
+- Do NOT use Voicebox's voice-cloning feature on this ad without written consent from the
+  voice owner. Use built-in synthetic profiles only (Kokoro/Chatterbox built-ins).
+- Test cut05 ("무진장!" — emotional peak) carefully; pick a profile that can carry the
+  tearful-comedic energy. Chatterbox-Turbo handles emotion better than Kokoro for that line.
+
+## Pipeline extensibility: adding AI providers and projects
+
+`creativeforge` is a **model-agnostic, multi-project** pipeline. The project folder
+(`projects/musinsa-king-choice/`) defines WHICH adapters to use; the framework doesn't care.
+
+### Switching an AI model (e.g. Veo → Runway for video)
+
+Three steps — no framework changes:
+
+```
+1. Write  creativeforge/adapters/video/runway.py
+          @register("runway") class RunwayAdapter — implement generate(req, out_dir) -> GenResult
+
+2. Add    "runway": "video"  to ADAPTER_KIND in creativeforge/pipeline.py
+
+3. Change  adapter: runway   in projects/<project>/project.yaml  (one line)
+```
+
+The same pattern applies to every stage kind:
+- `adapters/image/` for image generation
+- `adapters/video/` for video generation
+- `adapters/voice/` for TTS
+- `adapters/audio/` for music/SFX search
+- `adapters/compose/` for final render
+
+You can mix adapters within a project — each stage picks its own via `adapter:` in `project.yaml`.
+You can even mix on a per-cut basis using the `adapter:` override inside individual cut YAML items.
+
+### Adding a new project (more Musinsa ads or unrelated videos)
+
+```bash
+mkdir projects/musinsa-project-2/
+# create project.yaml, storyboard.yaml, prompts/ — same structure as musinsa-king-choice
+creativeforge run musinsa-project-2
+```
+
+The framework discovers any directory under `projects/` that has a `project.yaml`. No other
+registration needed. `creativeforge list` will show it automatically.
+
+### What NEVER changes when you swap models or add projects
+
+- `creativeforge/pipeline.py` core orchestration — untouched
+- `creativeforge/state.py`, `config.py`, `cli.py` — untouched
+- Approval gate (`ui/approve.py`) — same UX across all adapters
+- Credit tracking (`credits.py`) — add a new model's cost to the table if needed
