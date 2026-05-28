@@ -59,8 +59,21 @@ Design and rationale: see the approved plan referenced in the commit body, summa
    - When Phase B is done, run `creativeforge process-doc <run_id> --html` to compile evidence for contest submission.
 
    - **Operating rules live in `CLAUDE.md`** (auto-loaded each session): Extend vs.
-     fresh generation, draft-first credit strategy, and variant selection. Read it
-     before `s01_cut_images` / `s02_cut_videos`.
+     fresh generation, draft-first credit strategy, variant selection, voice
+     strategy, and the model/project extensibility recipes. Read it before
+     `s01_cut_images` / `s02_cut_videos`.
+
+   **Order of operations on Windows:**
+   1. `python scripts/login_google_flow.py` (one-time).
+   2. `creativeforge run musinsa-king-choice --only s00_character_sheets` → iterate
+      selectors until it generates (prepend fixed selectors; check `runs/<id>/debug/`).
+   3. Then `s01_cut_images`, then `s02_cut_videos` (draft pass on veo-3.1-fast).
+   4. Review at the gate, regen prompts, polish HERO cuts to high-quality.
+   5. Voice: runs on edge_tts by default. For the **final commercial dub**, install
+      the Voicebox app, flip `adapter: voicebox` in `project.yaml`, re-run
+      `--only s03_voice`, and **listen to the Korean output** (esp. cut05).
+   6. `s04_audio` (Pixabay, needs `PIXABAY_API_KEY`), then `s05_compose` (Remotion).
+   7. `creativeforge process-doc <run_id> --html` for submission evidence.
 
 ### DONE (completed in session 2026-05-28)
 
@@ -81,6 +94,12 @@ Design and rationale: see the approved plan referenced in the commit body, summa
 11. ✅ **Draft-first credits** — all 9 cuts default to `veo-3.1-fast` (180 cr); HERO cuts upgrade to high-quality on a polish pass. Rule documented in `CLAUDE.md`.
 12. ✅ **Variant picker** — `GenResult.variant_paths`; Flow adapters download every rendered variant; approval gate `[v]` key + `select_variant` promote the chosen one to canonical. Biggest win on the free image stages.
 13. ✅ **`CLAUDE.md`** — agent operating guide (Extend rule, draft-first, variant pick, selector iteration) auto-loaded each session.
+14. ✅ **Voicebox TTS adapter** — `creativeforge/adapters/voice/voicebox.py`, `@register("voicebox")`, REST call to `http://127.0.0.1:17493/generate`. Commercial-clean (Kokoro Apache-2.0 / Chatterbox-Turbo MIT) vs. edge-tts's unofficial endpoint. `edge_tts` stays the **default** (cloud/CI runnable); flip `adapter: voicebox` in `project.yaml` for the final dub on Windows. `doctor` pings the app (WARN if not running). s03_voice prints a switch reminder when still on edge_tts. 3 new tests.
+15. ✅ **Pipeline extensibility documented** — `CLAUDE.md` now spells out the model-swap recipe (new adapter file + 1 `ADAPTER_KIND` line + 1 `project.yaml` line; Veo→Runway and edge-tts→ElevenLabs examples) and the add-a-project recipe (new folder under `projects/`, zero framework changes).
+
+### Commercial-use status (resolved 2026-05-28)
+- **Video (Veo/Flow):** user is on a **paid Google AI Pro plan** → commercial use of Veo output is covered. ✅
+- **Voice:** edge-tts = scratch only (unofficial endpoint, not cleared). Final dub must use **Voicebox** (Kokoro/Chatterbox). ⚠️ **Korean quality is unverified** — judge by ear on Windows; if neither engine carries the emotional cut05 line ("무진장!"), fall back to ElevenLabs (paid, strong Korean, same 3-step adapter swap). Never voice-clone a real person without written consent.
 
 ### Credit-related follow-ups for Phase B / later
 - The Veo adapter's `_select_output_count` (variants) is a first-guess selector stub — refine it live like the other Flow selectors.
