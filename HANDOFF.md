@@ -68,6 +68,16 @@ Design and rationale: see the approved plan referenced in the commit body, summa
 7. ✅ **Process screenshots** — `capture_process_shot` added to `selectors.py`; `flow_imagen.py` and `flow_veo.py` capture 3 screenshots per item (ui-ready, prompt-entered, generated). `creativeforge process-doc <run_id> [--html] [--pdf]` compiles them for contest submission.
 8. ✅ **Reference ID normalization** — sheet IDs normalized to ASCII slugs (`sheet1-danjong-royal` etc.); `_resolve_references` tries exact-slug match first, then falls back to digit glob.
 9. ✅ **Cut image refs in s02_cut_videos** — each video item now references its matching cut image as start-frame (much better Veo quality).
+10. ✅ **Credit budgeting** (Gemini AI Pro = 1000 video credits/month; images unlimited).
+    - `creativeforge/credits.py` — cost table (veo-3.1-high-quality 100, fast 20, lite 10; omni-flash 4s:15/6s:20/8s:25/10s:30 per video) × variant count.
+    - Per-cut `model` / `variants` / `duration_s` / `source` in `02-cut-videos.yaml`. Current allocation = **580 cr** (4 hero cuts at high-quality, 4 at fast), leaving ~420 for regenerations.
+    - `creativeforge credits musinsa-king-choice` prints the per-cut breakdown + remaining budget.
+    - Pipeline prints the stage estimate before s02 and a running `+N credits` after each video; `state.json` tracks `credits_used` split by source. Over-budget prints a red warning (does not abort).
+    - `source: gemini` marks a cut as generated via the regular Gemini app (Omni) — tracked in a **separate** pool so the 1000 Flow credits are conserved. The Gemini-Omni adapter itself is future work (no selectors yet); the budget plumbing is ready for it.
+
+### Credit-related follow-ups for Phase B / later
+- The Veo adapter's `_select_output_count` (variants) is a first-guess selector stub — refine it live like the other Flow selectors.
+- If you decide to offload cuts to the regular Gemini app, write a `gemini_omni` video adapter and register it; set those cuts to `source: gemini` + `model: omni-flash`.
 
 ### Low priority / v2
 

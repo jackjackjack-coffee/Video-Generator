@@ -25,6 +25,7 @@ class RunState:
             "stages": {},
             "config_snapshot": config_snapshot,
             "model_versions": {},
+            "credits_used": {"flow": 0, "gemini": 0},
         }
         self.save()
         return self
@@ -60,6 +61,14 @@ class RunState:
     def record_model(self, adapter_name: str, model: str) -> None:
         self._data["model_versions"][adapter_name] = model
         self.save()
+
+    def add_credits(self, source: str, amount: int) -> None:
+        used = self._data.setdefault("credits_used", {"flow": 0, "gemini": 0})
+        used[source] = used.get(source, 0) + amount
+        self.save()
+
+    def credits_used(self) -> dict[str, int]:
+        return self._data.get("credits_used", {"flow": 0, "gemini": 0})
 
     @property
     def data(self) -> dict:

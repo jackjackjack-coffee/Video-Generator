@@ -180,6 +180,56 @@ def resume(run_id: str) -> None:
 
 
 @app.command()
+def credits(project: str) -> None:
+    """Show the video-generation credit budget breakdown for a project."""
+    project_dir = Path("projects") / project
+    if not project_dir.exists():
+        console.print(f"[red]Project not found: {project_dir}[/red]")
+        raise typer.Exit(1)
+
+    from creativeforge.pipeline import plan_video_credits
+
+    cfg = ProjectConfig.load(project_dir)
+    plan = plan_video_credits(project_dir, cfg)
+    if plan is None:
+        console.print("[yellow]No video stage / prompts file found.[/yellow]")
+        raise typer.Exit(0)
+
+    table = Table(title=f"Video credit estimate — {project}")
+    table.add_column("cut")
+    table.add_column("model")
+    table.add_column("variants", justify="right")
+    table.add_column("dur(s)", justify="right")
+    table.add_column("source")
+    table.add_column("credits", justify="right")
+    for row in plan["rows"]:
+        table.add_row(
+            row["id"],
+            str(row["model"]),
+            str(row["variants"]),
+            str(row["duration_s"] or "-"),
+            row["source"],
+            str(row["credits"]),
+        )
+    console.print(table)
+
+    budget = cfg.credits.monthly_budget
+    flow = plan["totals"].get("flow", 0)
+    gemini = plan["totals"].get("gemini", 0)
+    console.print(f"[bold]Flow credits:[/bold] {flow} / {budget}  (remaining {budget - flow})")
+    if gemini:
+        console.print(f"[bold]Gemini (separate pool):[/bold] {gemini}")
+    if flow > budget:
+        console.print(
+            f"[bold red]⚠ Over budget by {flow - budget} credits.[/bold red] "
+            "Switch hero cuts to fewer variants, or move some cuts to "
+            "veo-3.1-fast / omni-flash / source: gemini."
+        )
+    else:
+        console.print(f"[green]✓ Within budget — {budget - flow} credits free for regenerations.[/green]")
+
+
+@app.command()
 def process_doc(
     run_id: str,
     pdf: bool = typer.Option(False, "--pdf", help="Compile screenshots into a PDF (requires fpdf2)."),

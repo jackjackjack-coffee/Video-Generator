@@ -59,6 +59,12 @@ class VisualStyleEntry(BaseModel):
     suffix: str = ""
 
 
+class CreditsConfig(BaseModel):
+    monthly_budget: int = 1000
+    # Optional per-model cost override; falls back to credits.DEFAULT_VIDEO_COSTS.
+    costs: dict[str, Any] = Field(default_factory=dict)
+
+
 class ProjectConfig(BaseModel):
     project: ProjectMeta
     stages: dict[str, StageSpec]
@@ -66,6 +72,7 @@ class ProjectConfig(BaseModel):
     browser: BrowserConfig = BrowserConfig()
     storyboard_file: str = "storyboard.yaml"
     visual_style: dict[str, VisualStyleEntry] = Field(default_factory=dict)
+    credits: CreditsConfig = CreditsConfig()
 
     @classmethod
     def load(cls, project_dir: Path) -> "ProjectConfig":

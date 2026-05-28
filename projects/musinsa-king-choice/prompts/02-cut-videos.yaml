@@ -1,9 +1,21 @@
+# Per-cut video model allocation under the 1000-credit monthly budget.
+#   veo-3.1-high-quality = 100 cr/video   (hero cuts)
+#   veo-3.1-fast         =  20 cr/video
+#   veo-3.1-lite         =  10 cr/video
+#   omni-flash           =  duration-based (4s:15 6s:20 8s:25 10s:30)
+# source: flow (default, draws from the 1000 pool) | gemini (separate Omni pool)
+# Run `creativeforge credits musinsa-king-choice` to see the live budget breakdown.
+# Current allocation totals ~580 cr, leaving ~420 for regenerations.
 defaults:
   aspect_ratio: 9:16
 items:
   cut01:
     label: 수양대군 등장
     style: drama
+    model: veo-3.1-high-quality   # opening hook — first impression
+    variants: 1
+    duration_s: 3
+    source: flow
     references:
     - cut01
     prompt: "Slow cinematic push-in camera movement toward Prince Suyang's face. He\nstands still and intimidating in the palace throne hall, his eyes\nslowly turning to look directly at camera. Background
@@ -12,6 +24,10 @@ items:
   cut02:
     label: 단종·신하 무릎
     style: drama
+    model: veo-3.1-fast
+    variants: 1
+    duration_s: 3
+    source: flow
     references:
     - cut02
     prompt: "Slow gentle camera push-in toward young King Danjong's tearful face. A\nsingle tear slowly rolls down his cheek. His lips tremble slightly,\neyes blinking heavy with sorrow. In the soft-focus
@@ -20,6 +36,10 @@ items:
   cut03:
     label: 수양 위협 대사
     style: drama
+    model: veo-3.1-fast
+    variants: 1
+    duration_s: 4
+    source: flow
     references:
     - cut03
     prompt: "Steady medium shot of Prince Suyang speaking authoritatively. He\ngestures with his raised hand, lowering it slowly as he speaks, then\ntakes one menacing step forward toward camera. His expression\n\
@@ -28,6 +48,10 @@ items:
   cut04:
     label: 단종-수양 대화 + 수하 보고
     style: drama
+    model: veo-3.1-fast
+    variants: 1
+    duration_s: 4
+    source: flow
     references:
     - cut04
     prompt: "Wide static two-shot establishing the throne room. After 2 seconds, a\nJoseon military officer in armor rushes in through the palace doors in\nthe background, kneels on one knee, and bows his
@@ -36,6 +60,10 @@ items:
   cut05:
     label: 단종 무진장 절규
     style: drama
+    model: veo-3.1-high-quality   # emotional climax — the "무진장" line
+    variants: 1
+    duration_s: 3
+    source: flow
     references:
     - cut05
     prompt: "Extreme close-up of young King Danjong's face. A large glistening tear\nslowly forms and rolls down his cheek in slow motion. His mouth opens\nwide in an emotional cry, eyes squeezing shut
@@ -44,6 +72,10 @@ items:
   cut06:
     label: 변신 시퀀스
     style: fashion
+    model: veo-3.1-high-quality   # transformation reveal — the visual turning point
+    variants: 1
+    duration_s: 3
+    source: flow
     references:
     - cut06
     prompt: "Playful whimsical shot inside the palace room. The traditional folding\nscreen (byeongpung) rises smoothly upward, revealing behind it the\nsilhouette of King Danjong quickly changing clothes
@@ -53,6 +85,10 @@ items:
   cut07:
     label: 단종 현대 패션 선포
     style: fashion
+    model: veo-3.1-high-quality   # fashion declaration — Musinsa brand moment
+    variants: 1
+    duration_s: 3
+    source: flow
     references:
     - cut07
     prompt: "Confident medium shot of young King Danjong wearing modern streetwear\n(cream oversized hoodie, black cargo pants, white sneakers) and\ntraditional royal crown. He stands tall, then makes a
@@ -62,6 +98,10 @@ items:
   cut08:
     label: 수양 충격·무릎
     style: fashion
+    model: veo-3.1-fast
+    variants: 1
+    duration_s: 2
+    source: flow
     references:
     - cut08
     prompt: "Dramatic shot of Prince Suyang dropping to his knees in slow motion,\nboth hands hitting the wooden palace floor in a deep bow. His mouth\nfalls open in awe, eyes wide and glistening with a
@@ -70,6 +110,10 @@ items:
   cut09:
     label: 조정 → 궁문 행진 + 문 닫힘 (3초) ⭐ NEW
     style: fashion
+    model: veo-3.1-high-quality   # epic finale — last shot before title card
+    variants: 1
+    duration_s: 3
+    source: flow
     references:
     - cut09
     prompt: "Epic cinematic wide tracking shot from a low angle. King Danjong\n(young Korean boy in modern streetwear and traditional black silk\ncrown) walks slowly and confidently in slow motion down

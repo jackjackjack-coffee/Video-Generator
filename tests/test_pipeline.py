@@ -121,6 +121,54 @@ class TestReferenceResolution:
         assert refs == []
 
 
+class TestCredits:
+    def test_cost_per_video_flat_models(self):
+        from creativeforge.credits import cost_per_video
+        assert cost_per_video("veo-3.1-high-quality") == 100
+        assert cost_per_video("veo-3.1-fast") == 20
+        assert cost_per_video("veo-3.1-lite") == 10
+
+    def test_cost_per_video_unknown_is_free(self):
+        from creativeforge.credits import cost_per_video
+        assert cost_per_video("imagen-4-ultra") == 0
+        assert cost_per_video(None) == 0
+
+    def test_omni_flash_duration_buckets(self):
+        from creativeforge.credits import cost_per_video
+        assert cost_per_video("omni-flash", duration_s=4) == 15
+        assert cost_per_video("omni-flash", duration_s=6) == 20
+        assert cost_per_video("omni-flash", duration_s=8) == 25
+        assert cost_per_video("omni-flash", duration_s=10) == 30
+        # 5s rounds up to the 6s bucket; 12s clamps to the largest bucket
+        assert cost_per_video("omni-flash", duration_s=5) == 20
+        assert cost_per_video("omni-flash", duration_s=12) == 30
+
+    def test_estimate_item_multiplies_variants(self):
+        from creativeforge.credits import estimate_item
+        assert estimate_item("veo-3.1-high-quality", variants=4) == 400
+        assert estimate_item("veo-3.1-fast", variants=4) == 80
+
+    def test_estimate_plan_splits_by_source(self):
+        from creativeforge.credits import estimate_plan
+        cuts = [
+            {"id": "a", "model": "veo-3.1-high-quality", "variants": 1, "source": "flow"},
+            {"id": "b", "model": "veo-3.1-fast", "variants": 1, "source": "flow"},
+            {"id": "c", "model": "omni-flash", "duration_s": 4, "variants": 1, "source": "gemini"},
+        ]
+        plan = estimate_plan(cuts, default_model="veo-3.1-fast")
+        assert plan["totals"]["flow"] == 120
+        assert plan["totals"]["gemini"] == 15
+        assert plan["grand_total"] == 135
+
+    def test_project_plan_within_budget(self):
+        from creativeforge.pipeline import plan_video_credits
+        cfg = ProjectConfig.load(PROJECT_DIR)
+        plan = plan_video_credits(PROJECT_DIR, cfg)
+        assert plan is not None
+        assert plan["totals"]["flow"] == 580
+        assert plan["totals"]["flow"] <= cfg.credits.monthly_budget
+
+
 class TestRegenLoop:
     def test_regen_loop_reruns_flagged_items(self):
         """When approve_stage returns ('regen', ['cut03']), only cut03 is re-dispatched."""

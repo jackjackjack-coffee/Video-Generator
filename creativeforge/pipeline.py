@@ -142,6 +142,9 @@ class Pipeline:
         console.rule(f"[bold cyan]{stage_id}[/bold cyan]  adapter={spec.adapter}  kind={kind}")
         self.state.set_stage_status(stage_id, "running")
 
+        if kind == "video":
+            self._warn_video_budget(spec)
+
         if kind == "compose":
             await self._run_compose(stage_id, spec, stage_dir)
         else:
@@ -207,17 +210,37 @@ class Pipeline:
             adapter = self._get_adapter(spec.adapter)
             if kind in ("image", "video"):
                 refs = self._resolve_references(item.references)
+                item_model = item.extra.get("model") or spec.model
                 req = GenRequest(
                     prompt=prompt,
                     references=refs,
                     aspect_ratio=spec.aspect_ratio or "9:16",
-                    model=spec.model,
+                    model=item_model,
                     extra={"item_id": item.id, **item.extra},
                 )
                 result: GenResult = await adapter.generate(req, stage_dir)
                 self._write_meta(stage_dir, item.id, result, item, started)
                 self.state.record_model(spec.adapter, result.model_used)
-                return {"status": "ok", "path": str(result.path), "model": result.model_used}
+                info = {"status": "ok", "path": str(result.path), "model": result.model_used}
+                if kind == "video":
+                    from creativeforge.credits import estimate_item
+
+                    spent = estimate_item(
+                        item_model,
+                        variants=item.extra.get("variants", 1),
+                        duration_s=item.extra.get("duration_s"),
+                        costs=self.cfg.credits.costs or None,
+                    )
+                    source = item.extra.get("source", "flow")
+                    self.state.add_credits(source, spent)
+                    info["credits"] = spent
+                    info["credit_source"] = source
+                    used = self.state.credits_used()
+                    console.print(
+                        f"    [magenta]credits: +{spent} ({source}) — "
+                        f"flow total {used.get('flow', 0)}/{self.cfg.credits.monthly_budget}[/magenta]"
+                    )
+                return info
 
             if kind == "voice":
                 voice = item.extra.get("voice") or spec.voice or "ko-KR-InJoonNeural"
@@ -302,7 +325,14 @@ class Pipeline:
                     id=item_id,
                     prompt=prompt,
                     references=body.get("references") or [],
-                    extra={"label": body.get("label") or body.get("title", ""), "style": style_tag},
+                    extra={
+                        "label": body.get("label") or body.get("title", ""),
+                        "style": style_tag,
+                        "model": body.get("model"),
+                        "variants": int(body.get("variants", 1)),
+                        "duration_s": body.get("duration_s"),
+                        "source": body.get("source", "flow"),
+                    },
                 )
             return
 
@@ -351,6 +381,25 @@ class Pipeline:
             return
 
         raise StageError(f"_resolve_items: unsupported kind {kind}")
+
+    def _warn_video_budget(self, spec: StageSpec) -> None:
+        """Estimate the cost of this video stage and warn if it busts the budget."""
+        plan = plan_video_credits_for_spec(self.project_dir, spec, self.cfg)
+        if plan is None:
+            return
+        est = plan["totals"].get("flow", 0)
+        already = self.state.credits_used().get("flow", 0) if self.state else 0
+        budget = self.cfg.credits.monthly_budget
+        console.print(
+            f"  [magenta]estimated flow credits this stage: {est} "
+            f"(already used {already}, budget {budget})[/magenta]"
+        )
+        if est + already > budget:
+            console.print(
+                f"  [bold red]⚠ budget warning:[/bold red] estimate {est} + used {already} "
+                f"= {est + already} exceeds monthly budget {budget}. "
+                f"Lower variants or switch cuts to veo-3.1-fast / omni-flash / source: gemini."
+            )
 
     # -- references / overrides / meta --------------------------------------
 
@@ -475,6 +524,31 @@ class Pipeline:
         for sid in stages:
             visit(sid)
         return order
+
+
+def plan_video_credits_for_spec(
+    project_dir: Path, spec: StageSpec, cfg: ProjectConfig
+) -> dict[str, Any] | None:
+    """Build a credit estimate for a single video stage spec. None if no prompts file."""
+    from creativeforge.credits import estimate_plan
+
+    if not spec.prompts_file:
+        return None
+    path = project_dir / spec.prompts_file
+    if not path.exists():
+        return None
+    with path.open() as f:
+        data = yaml.load(f) or {}
+    cuts = [{"id": cid, **(body or {})} for cid, body in (data.get("items") or {}).items()]
+    return estimate_plan(cuts, default_model=spec.model, costs=cfg.credits.costs or None)
+
+
+def plan_video_credits(project_dir: Path, cfg: ProjectConfig) -> dict[str, Any] | None:
+    """Find the video stage in a project and estimate its credit cost."""
+    for spec in cfg.stages.values():
+        if ADAPTER_KIND.get(spec.adapter) == "video":
+            return plan_video_credits_for_spec(project_dir, spec, cfg)
+    return None
 
 
 async def run_pipeline(

@@ -47,6 +47,8 @@ browser:
   storage_state: ../../.auth/google.json
   user_data_dir: ../../.auth/chrome-profile
 storyboard_file: storyboard.yaml
+credits:
+  monthly_budget: 1000
 visual_style:
   drama:
     palette: "deep navy and black shadows, rich crimson red accents, warm gold and amber candlelight, high-contrast cinematic grade, dust-particle atmosphere"
