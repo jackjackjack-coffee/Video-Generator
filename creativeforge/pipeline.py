@@ -146,6 +146,15 @@ class Pipeline:
         if kind == "video":
             self._warn_video_budget(spec)
 
+        if stage_id == "s03_voice" and spec.adapter == "edge_tts":
+            console.print(
+                "[yellow]⚠ Voice stage using edge_tts (unofficial endpoint — scratch track only).[/yellow]\n"
+                "  For the commercial final dub, switch to Voicebox:\n"
+                "  1. Install the Voicebox app (github.com/jamiepine/voicebox)\n"
+                "  2. Set  adapter: voicebox  in project.yaml → s03_voice\n"
+                "  3. Re-run: creativeforge run <project> --only s03_voice"
+            )
+
         if kind == "compose":
             await self._run_compose(stage_id, spec, stage_dir)
         else:

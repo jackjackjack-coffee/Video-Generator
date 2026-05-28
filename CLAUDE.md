@@ -97,6 +97,17 @@ Three steps — no framework changes:
 3. Change  adapter: runway   in projects/<project>/project.yaml  (one line)
 ```
 
+Same pattern for ElevenLabs voice (or any other TTS):
+```
+1. Write  creativeforge/adapters/voice/elevenlabs.py
+          @register("elevenlabs") class ElevenLabsAdapter — implement synthesize(...) -> GenResult
+          Use ELEVENLABS_API_KEY from env; call their REST/SDK
+
+2. Add    "elevenlabs": "voice"  to ADAPTER_KIND in creativeforge/pipeline.py
+
+3. Change  adapter: elevenlabs  in project.yaml  (+ set voice: to an ElevenLabs voice ID)
+```
+
 The same pattern applies to every stage kind:
 - `adapters/image/` for image generation
 - `adapters/video/` for video generation
