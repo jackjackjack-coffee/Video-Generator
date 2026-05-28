@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING
 
 from playwright.async_api import Page
 
-from creativeforge.browser.selectors import LoginRequired, first_visible
+from creativeforge.browser.selectors import LoginRequired, capture_process_shot, first_visible
 
 if TYPE_CHECKING:
     from creativeforge.adapters.base import GenRequest, GenResult
@@ -197,10 +197,13 @@ async def generate_video(page: Page, req: "GenRequest", out_dir: Path) -> "GenRe
     await _open_video_tool(page)
     await _select_model(page, req.model)
     await _ensure_high_quality(page)
+    await capture_process_shot(page, out_dir, item_id, "1-ui-ready")
     await _upload_start_frame(page, req.references)
     await _fill_prompt(page, req.prompt)
+    await capture_process_shot(page, out_dir, item_id, "2-prompt-entered")
     await _submit(page)
     await _wait_for_render(page)
+    await capture_process_shot(page, out_dir, item_id, "3-generated")
     dest = out_dir / f"{item_id}.mp4"
     path = await _download_result(page, dest)
     return GenResult(

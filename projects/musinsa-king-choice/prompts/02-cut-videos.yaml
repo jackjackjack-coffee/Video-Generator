@@ -3,57 +3,75 @@ defaults:
 items:
   cut01:
     label: 수양대군 등장
-    references: []
+    style: drama
+    references:
+    - cut01
     prompt: "Slow cinematic push-in camera movement toward Prince Suyang's face. He\nstands still and intimidating in the palace throne hall, his eyes\nslowly turning to look directly at camera. Background
       guards remain\nmotionless. Dust particles drift slowly in the dramatic side lighting.\nSubtle wind movement in his robe. Ambient sound only — distant low\ndrum and faint wind, no dialogue. Tense,
       ominous mood. Cinematic 9:16\nvertical, historical Korean drama style, photorealistic."
   cut02:
     label: 단종·신하 무릎
-    references: []
+    style: drama
+    references:
+    - cut02
     prompt: "Slow gentle camera push-in toward young King Danjong's tearful face. A\nsingle tear slowly rolls down his cheek. His lips tremble slightly,\neyes blinking heavy with sorrow. In the soft-focus
       background, court\nattendants remain kneeling and bowing, one of them shoulders shaking\nsubtly from quiet weeping. Warm candlelight flickers gently. Ambient\nsound only — soft breathing and faint
       distant traditional Korean\nstring instrument, no dialogue. Heartbreaking, somber atmosphere.\nCinematic 9:16 vertical, historical Korean drama, photorealistic."
   cut03:
     label: 수양 위협 대사
-    references: []
+    style: drama
+    references:
+    - cut03
     prompt: "Steady medium shot of Prince Suyang speaking authoritatively. He\ngestures with his raised hand, lowering it slowly as he speaks, then\ntakes one menacing step forward toward camera. His expression\n\
       intensifies — eyes narrowing, jaw set. The folding screen and red\npillars in background stay still. Strong directional light creates\nmoving shadows on his face as he moves. Ambient palace sound
       only —\nsubtle echo, no spoken dialogue (mouth movement natural but\nnon-specific). Tense, intimidating mood. Cinematic 9:16 vertical,\nhistorical Korean drama, photorealistic."
   cut04:
     label: 단종-수양 대화 + 수하 보고
-    references: []
+    style: drama
+    references:
+    - cut04
     prompt: "Wide static two-shot establishing the throne room. After 2 seconds, a\nJoseon military officer in armor rushes in through the palace doors in\nthe background, kneels on one knee, and bows his
       head in a quick\nreport gesture. Suyang slowly turns his head toward the officer with a\nsatisfied expression while Danjong's face falls in despair. Camera\nremains steady. Ambient sound only — footsteps
       approaching, faint\narmor clanking, no dialogue. Tense political atmosphere with golden\nhour light filtering through the doors. Cinematic 9:16 vertical,\nhistorical Korean drama, photorealistic."
   cut05:
     label: 단종 무진장 절규
-    references: []
+    style: drama
+    references:
+    - cut05
     prompt: "Extreme close-up of young King Danjong's face. A large glistening tear\nslowly forms and rolls down his cheek in slow motion. His mouth opens\nwide in an emotional cry, eyes squeezing shut
       briefly then opening\nagain wider. Subtle camera shake for dramatic effect. The candlelight\nflickers on his face. Ambient sound only — soft sobbing breath, no\nclear dialogue (mouth shape can suggest
       the Korean word\n\"mujinjang\"). Heartbreaking, almost comedic-tragic atmosphere.\nCinematic 9:16 vertical, extreme close-up, photorealistic."
   cut06:
     label: 변신 시퀀스
-    references: []
+    style: fashion
+    references:
+    - cut06
     prompt: "Playful whimsical shot inside the palace room. The traditional folding\nscreen (byeongpung) rises smoothly upward, revealing behind it the\nsilhouette of King Danjong quickly changing clothes
       — quick humorous\nsilhouette motion of arms going up and down. The palace maid stands to\nthe side smiling, holding out modern streetwear. After 2 seconds, the\nscreen lowers back down. Subtle sparkle
       particles in the air. Bright\nwarm light, light comedic tone. Ambient sound only — soft fabric\nrustling and gentle magical chime, no dialogue. Cinematic 9:16\nvertical, photorealistic with whimsical
       mood."
   cut07:
     label: 단종 현대 패션 선포
-    references: []
+    style: fashion
+    references:
+    - cut07
     prompt: "Confident medium shot of young King Danjong wearing modern streetwear\n(cream oversized hoodie, black cargo pants, white sneakers) and\ntraditional royal crown. He stands tall, then makes a
       subtle \"whatever\nyou want\" hand gesture — flicking his wrist casually. His eyes are\nstill slightly red but his expression is calm, slightly smirking. A\ngentle rim light catches his outline. Background
       palace stays in soft\nfocus. Ambient sound only — subtle fabric movement, faint modern beat\nhint, no dialogue. Playful, cool atmosphere blending old and new.\nCinematic 9:16 vertical, fashion editorial
       meets historical drama,\nphotorealistic."
   cut08:
     label: 수양 충격·무릎
-    references: []
+    style: fashion
+    references:
+    - cut08
     prompt: "Dramatic shot of Prince Suyang dropping to his knees in slow motion,\nboth hands hitting the wooden palace floor in a deep bow. His mouth\nfalls open in awe, eyes wide and glistening with a
       tear. His robe\nbillows as he kneels. Strong backlit dramatic lighting creating a\nhalo effect around him. Slight camera push-in synchronized with his\nmovement. Ambient sound only — heavy thud of
       knees on wood, gasping\nbreath, no dialogue. Overwhelmed, awestruck mood with subtle comedic\novertone. Cinematic 9:16 vertical, historical Korean drama,\nphotorealistic."
   cut09:
     label: 조정 → 궁문 행진 + 문 닫힘 (3초) ⭐ NEW
-    references: []
+    style: fashion
+    references:
+    - cut09
     prompt: "Epic cinematic wide tracking shot from a low angle. King Danjong\n(young Korean boy in modern streetwear and traditional black silk\ncrown) walks slowly and confidently in slow motion down
       the red\ncarpet of a grand Joseon palace courtyard, leading the procession.\nA few steps behind him, Prince Suyang and several court officials in\ncolorful traditional Joseon robes follow with respectful
       posture,\nwalking at normal speed (creating dramatic time contrast with the\nslow-motion Danjong). The camera tracks alongside them, slowly\npulling back. They approach a massive Korean palace gate

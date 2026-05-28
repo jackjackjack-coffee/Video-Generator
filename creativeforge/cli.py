@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import asyncio
+import os
+import shutil
 from datetime import datetime
 from pathlib import Path
 
@@ -13,7 +15,7 @@ from rich.table import Table
 from creativeforge.adapters import base as _adapter_base  # ensures registry populated
 import creativeforge.adapters  # noqa: F401 — populates registry
 from creativeforge.config import ProjectConfig
-from creativeforge.pipeline import run_pipeline
+from creativeforge.pipeline import Pipeline, run_pipeline
 
 app = typer.Typer(add_completion=False, help="creativeforge — multi-project AI video pipeline")
 console = Console()
@@ -40,12 +42,41 @@ def list() -> None:
 
 @app.command()
 def doctor() -> None:
-    """Show registered adapters and basic env health."""
-    table = Table(title="Registered adapters")
-    table.add_column("name")
+    """Show registered adapters and environment health pre-flight."""
+    adapter_table = Table(title="Registered adapters")
+    adapter_table.add_column("name")
     for n in _adapter_base.list_adapters():
-        table.add_row(n)
-    console.print(table)
+        adapter_table.add_row(n)
+    console.print(adapter_table)
+
+    health_table = Table(title="Environment health")
+    health_table.add_column("check")
+    health_table.add_column("status")
+    health_table.add_column("detail")
+
+    def _row(label: str, ok: bool, detail: str = "") -> None:
+        status = "[green]OK[/green]" if ok else "[yellow]WARN[/yellow]"
+        health_table.add_row(label, status, detail)
+
+    _row("PIXABAY_API_KEY", bool(os.environ.get("PIXABAY_API_KEY")), "required for s04_audio")
+
+    try:
+        import edge_tts  # noqa: F401
+        _row("edge_tts", True, "voice synthesis ready")
+    except ImportError:
+        _row("edge_tts", False, "pip install edge-tts")
+
+    npm = shutil.which("npm")
+    npx = shutil.which("npx")
+    _row("npm", bool(npm), npm or "not found — needed for s05_compose")
+    _row("npx", bool(npx), npx or "not found — needed for s05_compose")
+
+    auth_json = Path(".auth/google.json")
+    auth_profile = Path(".auth/chrome-profile")
+    _row(".auth/google.json", auth_json.exists(), "login state for Google Flow (run scripts/login_google_flow.py)")
+    _row(".auth/chrome-profile/", auth_profile.is_dir(), "browser profile for Google Flow")
+
+    console.print(health_table)
 
 
 @app.command()
@@ -101,7 +132,126 @@ def resume(run_id: str) -> None:
     if not (run_dir / "state.json").exists():
         console.print(f"[red]No state.json at {run_dir}[/red]")
         raise typer.Exit(1)
-    console.print(f"[yellow]resume not implemented yet — would pick up from state.json at {run_dir}[/yellow]")
+
+    from creativeforge.state import RunState
+
+    state = RunState.load(run_dir)
+    data = state.data
+
+    project_id = data.get("project")
+    if not project_id:
+        console.print("[red]state.json missing 'project' field[/red]")
+        raise typer.Exit(1)
+
+    project_dir = Path("projects") / project_id
+    if not project_dir.exists():
+        console.print(f"[red]Project directory not found: {project_dir}[/red]")
+        raise typer.Exit(1)
+
+    cfg = ProjectConfig.load(project_dir)
+
+    tmp = Pipeline(cfg=cfg, project_dir=project_dir, run_dir=run_dir)
+    order = tmp._topo_order()
+    stages_state = data.get("stages") or {}
+
+    from_stage: str | None = None
+    for sid in order:
+        stage_status = (stages_state.get(sid) or {}).get("status", "pending")
+        if stage_status != "approved":
+            from_stage = sid
+            break
+
+    if from_stage is None:
+        console.print(f"[green]Run {run_id} is already fully approved — nothing to resume.[/green]")
+        raise typer.Exit(0)
+
+    console.print(f"[green]Resuming run:[/green] {run_id}")
+    console.print(f"[green]From stage:[/green] {from_stage}")
+
+    asyncio.run(
+        run_pipeline(
+            cfg=cfg,
+            project_dir=project_dir,
+            run_dir=run_dir,
+            from_stage=from_stage,
+            resume_mode=True,
+        )
+    )
+
+
+@app.command()
+def process_doc(
+    run_id: str,
+    pdf: bool = typer.Option(False, "--pdf", help="Compile screenshots into a PDF (requires fpdf2)."),
+    html: bool = typer.Option(False, "--html", help="Compile screenshots into an HTML gallery."),
+) -> None:
+    """List (or compile to PDF/HTML) process screenshots captured during a run."""
+    run_dir = Path("runs") / run_id
+    doc_dir = run_dir / "process-doc"
+    if not doc_dir.exists():
+        console.print(f"[yellow]No process-doc directory at {doc_dir}[/yellow]")
+        raise typer.Exit(0)
+
+    shots = sorted(doc_dir.rglob("*.png"))
+    if not shots:
+        console.print(f"[yellow]No screenshots found under {doc_dir}[/yellow]")
+        raise typer.Exit(0)
+
+    table = Table(title=f"Process screenshots — {run_id}")
+    table.add_column("stage")
+    table.add_column("item")
+    table.add_column("step")
+    for s in shots:
+        # filename: "{item_id}-{step}.png"  e.g. "cut01-2-prompt-entered.png"
+        # Split on first "-" that is followed by a digit (start of step number)
+        import re
+        m = re.match(r"^(.+?)-(\d-.+)$", s.stem)
+        if m:
+            item, step = m.group(1), m.group(2)
+        else:
+            item, step = s.stem, "?"
+        table.add_row(s.parent.name, item, step)
+    console.print(table)
+    console.print(f"[dim]Total: {len(shots)} screenshot(s)[/dim]")
+
+    if pdf:
+        _compile_pdf(shots, run_dir / "process-doc.pdf")
+    elif html:
+        out = _compile_html(shots, run_dir / "process-doc.html")
+        console.print(f"[green]HTML gallery:[/green] {out}")
+
+
+def _compile_pdf(shots: list[Path], out_path: Path) -> None:
+    try:
+        from fpdf import FPDF
+    except ImportError:
+        console.print("[red]fpdf2 not installed. Run: pip install fpdf2[/red]")
+        return
+    pdf = FPDF(orientation="P", unit="mm", format="A4")
+    for s in shots:
+        pdf.add_page()
+        pdf.image(str(s), x=10, y=10, w=190)
+        pdf.set_font("Helvetica", size=8)
+        pdf.set_y(260)
+        pdf.cell(0, 5, f"{s.parent.name}/{s.name}")
+    pdf.output(str(out_path))
+    console.print(f"[green]PDF compiled:[/green] {out_path}")
+
+
+def _compile_html(shots: list[Path], out_path: Path) -> Path:
+    imgs = "\n".join(
+        f'<figure style="margin:0 0 2em"><img src="{s.resolve()}" style="max-width:100%">'
+        f'<figcaption style="font-size:12px;color:#666">{s.parent.name}/{s.name}</figcaption></figure>'
+        for s in shots
+    )
+    html = (
+        "<!DOCTYPE html><html><head><meta charset=utf-8>"
+        "<title>Process screenshots</title></head>"
+        f"<body style='font-family:sans-serif;max-width:900px;margin:auto'>"
+        f"<h1>Process screenshots</h1>{imgs}</body></html>"
+    )
+    out_path.write_text(html, encoding="utf-8")
+    return out_path
 
 
 if __name__ == "__main__":

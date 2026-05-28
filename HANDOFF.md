@@ -48,32 +48,32 @@ Design and rationale: see the approved plan referenced in the commit body, summa
 
 ## What's NOT done — picked-up tasks
 
-### High priority
+### HIGH PRIORITY — the one remaining blocker
 
 1. **Phase B: paired selector iteration** (Windows, local Claude Code session).
    - Bootstrap: `python scripts/login_google_flow.py`.
    - Test target: `creativeforge run musinsa-king-choice --only s00_character_sheets --auto-approve`.
    - First-guess selectors are committed but will mostly miss. Each miss dumps `runs/<id>/debug/<ts>-<label>.{html,png}`. Iterate by prepending new candidate lambdas in `creativeforge/browser/flow_imagen.py` and `flow_veo.py`. Keep older candidates at the bottom — they self-heal across Flow A/B tests.
    - Tools: `playwright codegen https://labs.google/fx/tools/flow --load-storage .auth/google.json`, `set PWDEBUG=1`.
+   - Process screenshots auto-save to `runs/<id>/process-doc/` — no manual work needed.
+   - When Phase B is done, run `creativeforge process-doc <run_id> --html` to compile evidence for contest submission.
 
-2. **Regenerate loop wiring**. `ui/approve.py` reports `regen` but `pipeline._run_stage` only logs the decision. Wire `regen` → re-run flagged items in place, then re-prompt. Look for the `# Regenerations happen inline ...` comment in `pipeline.py:_run_stage`.
+### DONE (completed in session 2026-05-28)
 
-3. **`resume <run_id>`** — load `state.json`, find the first non-`approved` stage, restart `Pipeline` from there. The infrastructure (`RunState.load`, `--from`) exists; needs a thin wrapper that derives the start stage automatically.
-
-### Medium priority
-
-4. Hand-edit `projects/musinsa-king-choice/CONTEXT.md` and `DECISIONS.md` — they're auto-generated drafts. Verify the "current progress" section against reality.
-5. Review `projects/musinsa-king-choice/storyboard.yaml` — speaker tags were manually corrected for cut04 (danjong) and cut09 (danjong), plus dialogue text fixed to "숙부, 어찌하여…". Other cuts looked fine on a quick check but a full pass against the original PLAN.md cuts table is still worth doing.
-6. Normalize reference IDs in `prompts/01-cut-images.yaml` and `prompts/02-cut-videos.yaml`. Currently they read `Sheet 3 (Suyang)`. `pipeline._resolve_references()` does a best-effort `sheet(\d+)` regex match, but a clean slug like `sheet3-prince-suyang-수양대군` would be more robust.
-7. Sheet IDs in `prompts/00-character-sheets.yaml` carry Korean in the slug (`sheet1-king-danjong-조선-왕복-버전`). Decide: normalize to `sheet1-danjong-royal`, `sheet2-danjong-modern`, etc. and update reference fields throughout.
-8. `prompts/04-audio-keywords.yaml` mixes actual queries (`"japanese sad traditional"`) with style notes (`60~80 BPM (느림)`). The pixabay adapter currently treats every line as a query — prune to real queries or add a separate `queries` block.
+2. ✅ **Regen loop** — `[r]` / `[e]` in the approval gate now actually re-dispatches flagged items inline and re-prompts. Tested with 11 unit tests.
+3. ✅ **`resume <run_id>`** — fully implemented: loads `state.json`, derives first non-approved stage from topo order, resumes from there.
+4. ✅ **`doctor` health checks** — extended with PIXABAY_API_KEY, edge_tts, npm/npx, `.auth/google.json`, `.auth/chrome-profile/` rows.
+5. ✅ **Audio query fix** — `04-audio-keywords.yaml` restructured into `bgm_traditional / bgm_bright / sfx` groups with `queries:` lists. Pixabay no longer receives style notes like `"60~80 BPM"`.
+6. ✅ **Visual style consistency** — `project.yaml` now has `visual_style.drama` / `visual_style.fashion` color-grade suffixes. All 9 cut prompts are tagged `style: drama` (cuts 01-05) or `style: fashion` (cuts 06-09). The pipeline appends the suffix automatically.
+7. ✅ **Process screenshots** — `capture_process_shot` added to `selectors.py`; `flow_imagen.py` and `flow_veo.py` capture 3 screenshots per item (ui-ready, prompt-entered, generated). `creativeforge process-doc <run_id> [--html] [--pdf]` compiles them for contest submission.
+8. ✅ **Reference ID normalization** — sheet IDs normalized to ASCII slugs (`sheet1-danjong-royal` etc.); `_resolve_references` tries exact-slug match first, then falls back to digit glob.
+9. ✅ **Cut image refs in s02_cut_videos** — each video item now references its matching cut image as start-frame (much better Veo quality).
 
 ### Low priority / v2
 
-9. `creativeforge doctor` should check adapter health (PIXABAY_API_KEY present, edge-tts reachable, npm/remotion present).
-10. Approval gate web UI (FastAPI + simple HTML) — easier preview than `xdg-open`.
-11. Parallel item generation within a stage.
-12. AI-process auto-capture → PDF for festival submission.
+- Approval gate web UI (FastAPI + simple HTML) — easier preview than `xdg-open`.
+- Parallel item generation within a stage.
+- `scripts/new_project.py` wizard for project #2+.
 
 ## How to verify what works right now
 

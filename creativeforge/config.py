@@ -54,12 +54,18 @@ class BrowserConfig(BaseModel):
     user_data_dir: str | None = None
 
 
+class VisualStyleEntry(BaseModel):
+    palette: str = ""
+    suffix: str = ""
+
+
 class ProjectConfig(BaseModel):
     project: ProjectMeta
     stages: dict[str, StageSpec]
     approval: ApprovalConfig = ApprovalConfig()
     browser: BrowserConfig = BrowserConfig()
     storyboard_file: str = "storyboard.yaml"
+    visual_style: dict[str, VisualStyleEntry] = Field(default_factory=dict)
 
     @classmethod
     def load(cls, project_dir: Path) -> "ProjectConfig":

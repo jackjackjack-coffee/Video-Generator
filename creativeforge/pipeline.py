@@ -82,6 +82,7 @@ class Pipeline:
         auto_approve: bool = False,
         only: str | None = None,
         from_stage: str | None = None,
+        resume_mode: bool = False,
     ):
         self.cfg = cfg
         self.project_dir = project_dir
@@ -90,6 +91,7 @@ class Pipeline:
         self.auto_approve = auto_approve
         self.only = only
         self.from_stage = from_stage
+        self.resume_mode = resume_mode
         self.state: RunState | None = None
         self._adapters: dict[str, Any] = {}
 
@@ -97,11 +99,14 @@ class Pipeline:
 
     async def run(self) -> None:
         self.run_dir.mkdir(parents=True, exist_ok=True)
-        self.state = RunState.create(
-            self.run_dir,
-            project_id=self.cfg.project.id,
-            config_snapshot=self.cfg.model_dump(mode="json"),
-        )
+        if self.resume_mode:
+            self.state = RunState.load(self.run_dir)
+        else:
+            self.state = RunState.create(
+                self.run_dir,
+                project_id=self.cfg.project.id,
+                config_snapshot=self.cfg.model_dump(mode="json"),
+            )
 
         order = self._topo_order()
         if self.from_stage:
@@ -151,12 +156,20 @@ class Pipeline:
         if kind != "compose" and not self.auto_approve and self.cfg.approval.mode == "gate":
             from creativeforge.ui.approve import approve_stage
 
-            decision = await approve_stage(stage_id, stage_dir, self.run_dir)
+            decision, regen_ids = await approve_stage(stage_id, stage_dir, self.run_dir)
             if decision == "quit":
                 self.state.set_stage_status(stage_id, "aborted")
                 raise StageError(f"User aborted at {stage_id}")
-            # Regenerations happen inline inside approve_stage via the regen callback
-            # (it calls back into the pipeline). For MVP we just record approval here.
+            while decision == "regen":
+                regen_set = set(regen_ids)
+                all_items = list(self._resolve_items(stage_id, spec, kind))
+                for it in all_items:
+                    if it.id in regen_set:
+                        await self._run_item_with_gate(stage_id, spec, kind, stage_dir, it)
+                decision, regen_ids = await approve_stage(stage_id, stage_dir, self.run_dir)
+                if decision == "quit":
+                    self.state.set_stage_status(stage_id, "aborted")
+                    raise StageError(f"User aborted at {stage_id}")
 
         self.state.set_stage_status(stage_id, "approved")
 
@@ -279,11 +292,17 @@ class Pipeline:
             data = self._load_yaml(self.project_dir / spec.prompts_file)
             items = data.get("items") or {}
             for item_id, body in items.items():
+                style_tag = body.get("style")
+                prompt = body.get("prompt", "")
+                if style_tag:
+                    vs = self.cfg.visual_style.get(style_tag)
+                    if vs and vs.suffix and vs.suffix not in prompt:
+                        prompt = prompt.rstrip() + " " + vs.suffix
                 yield Item(
                     id=item_id,
-                    prompt=body.get("prompt", ""),
+                    prompt=prompt,
                     references=body.get("references") or [],
-                    extra={"label": body.get("label") or body.get("title", "")},
+                    extra={"label": body.get("label") or body.get("title", ""), "style": style_tag},
                 )
             return
 
@@ -308,18 +327,27 @@ class Pipeline:
             if not spec.keywords_file:
                 raise StageError(f"{stage_id}: audio_search stage needs keywords_file")
             data = self._load_yaml(self.project_dir / spec.keywords_file)
-            for i, q in enumerate(data.get("music_queries") or []):
-                yield Item(
-                    id=f"music-{i:02d}",
-                    prompt=q,
-                    extra={"label": q[:60], "kind": "music"},
-                )
-            for i, q in enumerate(data.get("sfx_queries") or []):
-                yield Item(
-                    id=f"sfx-{i:02d}",
-                    prompt=q,
-                    extra={"label": q[:60], "kind": "sfx"},
-                )
+            _GROUP_KEYS = ("bgm_traditional", "bgm_bright", "sfx")
+            if any(k in data for k in _GROUP_KEYS):
+                # New structured format: groups with queries: [...] lists
+                for group_key in _GROUP_KEYS:
+                    group = data.get(group_key)
+                    if not group or not isinstance(group, dict):
+                        continue
+                    audio_kind = "sfx" if group_key == "sfx" else "music"
+                    prefix = group_key.replace("_", "-")
+                    for i, q in enumerate(group.get("queries") or []):
+                        yield Item(
+                            id=f"{prefix}-{i:02d}",
+                            prompt=q,
+                            extra={"label": q[:60], "kind": audio_kind, "group": group_key},
+                        )
+            else:
+                # Legacy flat lists fallback
+                for i, q in enumerate(data.get("music_queries") or []):
+                    yield Item(id=f"music-{i:02d}", prompt=q, extra={"label": q[:60], "kind": "music"})
+                for i, q in enumerate(data.get("sfx_queries") or []):
+                    yield Item(id=f"sfx-{i:02d}", prompt=q, extra={"label": q[:60], "kind": "sfx"})
             return
 
         raise StageError(f"_resolve_items: unsupported kind {kind}")
@@ -335,25 +363,41 @@ class Pipeline:
         out: list[Path] = []
         sheets_dir = self.run_dir / stage_subdir("s00_character_sheets")
         cut_imgs_dir = self.run_dir / stage_subdir("s01_cut_images")
+        branding_dir = self.project_dir / "branding"
         for ref in refs:
-            m = re.search(r"sheet\s*(\d+)", ref, re.I)
-            if m:
-                num = m.group(1)
-                hits = list(sheets_dir.glob(f"sheet{num}*.png")) + list(
-                    sheets_dir.glob(f"sheet{num}*.jpg")
-                )
-                if hits:
-                    out.append(hits[0])
+            # Exact slug match first (e.g. "sheet1-danjong-royal" or "branding/musinsa-logo.png")
+            if "/" in ref:
+                exact = self.project_dir / ref
+                if exact.exists():
+                    out.append(exact)
                     continue
-            m = re.search(r"cut\s*0*(\d+)", ref, re.I)
-            if m:
-                hits = list(cut_imgs_dir.glob(f"cut{int(m.group(1)):02d}*.png")) + list(
-                    cut_imgs_dir.glob(f"cut{int(m.group(1)):02d}*.jpg")
-                )
-                if hits:
-                    out.append(hits[0])
-                    continue
-            console.print(f"    [yellow]reference unresolved: {ref!r}[/yellow]")
+            for search_dir, suffix in ((sheets_dir, None), (cut_imgs_dir, None), (branding_dir, None)):
+                exact_hits = list(search_dir.glob(f"{ref}.png")) + list(search_dir.glob(f"{ref}.jpg"))
+                if suffix is None and not exact_hits:
+                    exact_hits = list(search_dir.glob(f"{ref}"))
+                if exact_hits:
+                    out.append(exact_hits[0])
+                    break
+            else:
+                # Digit-based fallback for legacy "Sheet 3 (Suyang)" style references
+                m = re.search(r"sheet\s*(\d+)", ref, re.I)
+                if m:
+                    num = m.group(1)
+                    hits = list(sheets_dir.glob(f"sheet{num}*.png")) + list(
+                        sheets_dir.glob(f"sheet{num}*.jpg")
+                    )
+                    if hits:
+                        out.append(hits[0])
+                        continue
+                m = re.search(r"cut\s*0*(\d+)", ref, re.I)
+                if m:
+                    hits = list(cut_imgs_dir.glob(f"cut{int(m.group(1)):02d}*.png")) + list(
+                        cut_imgs_dir.glob(f"cut{int(m.group(1)):02d}*.jpg")
+                    )
+                    if hits:
+                        out.append(hits[0])
+                        continue
+                console.print(f"    [yellow]reference unresolved: {ref!r}[/yellow]")
         return out
 
     def _apply_override(self, item: Item) -> str:
@@ -442,6 +486,7 @@ async def run_pipeline(
     auto_approve: bool = False,
     only: str | None = None,
     from_stage: str | None = None,
+    resume_mode: bool = False,
 ) -> None:
     p = Pipeline(
         cfg=cfg,
@@ -451,5 +496,6 @@ async def run_pipeline(
         auto_approve=auto_approve,
         only=only,
         from_stage=from_stage,
+        resume_mode=resume_mode,
     )
     await p.run()

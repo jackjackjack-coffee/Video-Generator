@@ -2,35 +2,35 @@ defaults:
   aspect_ratio: 9:16
   style_keywords: Joseon dynasty Korean palace, cinematic lighting, photorealistic, ultra-detailed
 items:
-  sheet1-king-danjong-조선-왕복-버전:
+  sheet1-danjong-royal:
     title: King Danjong (조선 왕복 버전)
     prompt: "Character reference sheet of King Danjong, a 13-year-old Korean boy\nking of the Joseon dynasty. Three views in a single image, side by\nside: (1) front-facing portrait with neutral solemn
       expression, (2)\nthree-quarter side angle profile, (3) close-up of tearful sorrowful\nexpression with eyes welling up. He has a pale delicate face, smooth\nyouthful skin, large dark eyes, soft features,
       and short black hair\ntucked under his royal headwear. He wears a bright crimson red royal\ndragon robe (gonryongpo) with elaborate golden dragon embroidery on\nthe chest and shoulders, with a wide
       black silk belt. On his head is\na traditional black silk royal crown (ikseongwan) with a small golden\nornament on top and two black flaps extending behind. Plain neutral\ngray studio background.
       Even soft studio lighting, photorealistic,\ncharacter sheet style, high detail on face and costume, 1:1 square\naspect ratio."
-  sheet2-king-danjong-현대-패션-버전:
+  sheet2-danjong-modern:
     title: King Danjong (현대 패션 버전)
     prompt: "Character reference sheet of the same young Korean boy from Sheet 1\n(13-year-old, pale delicate face, large dark eyes, same facial\nfeatures), now wearing modern trendy streetwear. Three views
       in a\nsingle image: (1) full-body front-facing shot, (2) three-quarter angle\nupper body, (3) confident smirking close-up portrait. Outfit: oversized\ncream white hoodie (loose cozy fit), relaxed
       black cargo pants with\nvisible side pockets, fresh white chunky sneakers. Despite the modern\nclothes, he still wears his traditional black silk royal crown\n(ikseongwan) with golden ornament on
       top of his head — this is a key\nvisual element. His eyes are slightly reddened from crying earlier but\nhis expression is now calm and quietly confident. Plain neutral gray\nstudio background, even
       soft studio lighting, photorealistic, fashion\neditorial character sheet style, high detail on outfit and same\nconsistent face, 1:1 square aspect ratio."
-  sheet3-prince-suyang-수양대군:
+  sheet3-suyang:
     title: Prince Suyang (수양대군)
     prompt: "Character reference sheet of Prince Suyang, a stern intimidating\nmiddle-aged Korean nobleman in his 40s from the Joseon dynasty. Three\nviews in a single image: (1) front-facing portrait with
       menacing\nauthoritative expression, (2) three-quarter side angle profile, (3)\nclose-up of shocked awestruck expression with eyes wide open and mouth\nslightly agape. He has a strong jawline, thick
       well-groomed black\nbeard and mustache, piercing dark intense eyes, prominent eyebrows,\nand weathered serious face. He wears a dark navy blue Joseon dynasty\nofficial robe (gwanbok) with intricate
       embroidered patterns on the\nchest, wide stiff collar, and a black silk belt. On his head is a\ntall stiff black silk official hat (samo) with wing-like extensions\non the sides. Plain neutral gray
       studio background. Even soft studio\nlighting, photorealistic, character sheet style, high detail on face,\nbeard, and costume embroidery, 1:1 square aspect ratio."
-  sheet4-joseon-palace-throne-hall-조정-내부:
+  sheet4-throne-hall:
     title: Joseon Palace Throne Hall (조정 내부)
     prompt: "Wide establishing shot of the grand interior of a Joseon dynasty\nKorean royal palace throne hall, completely empty with no people.\nTall ornate red wooden pillars line both sides, painted
       ceiling beams\n(dancheong) with vivid green, blue, and gold geometric and floral\npatterns overhead. At the center back is a raised platform with an\nornate wooden royal throne, behind which stands
       a large traditional\nfolding screen (byeongpung) painted with sun, moon, and five sacred\nmountains (irworobongdo). Polished dark wooden floors. Hanging paper\nlanterns provide warm ambient light.
       Large paper screen doors\n(hanji) on the sides allow golden hour sunlight to filter through.\nCinematic wide angle, historical accuracy, photorealistic, slightly\nmoody atmosphere with dust particles
       visible in light beams, 16:9\nhorizontal aspect ratio for full reference."
-  sheet5-palace-exterior-mujinjang-kv-flags-궁궐-입구:
+  sheet5-palace-exterior:
     title: Palace Exterior + Mujinjang KV Flags (궁궐 입구 + 키비주얼 깃발)
     prompt: "Use the reference banner image (image 1) as the printed graphic design\non all hanging flags in this scene. Do NOT generate any Korean text,\ntypography, or logos on your own — only use the
       exact artwork from\nthe reference image.\n\nWide cinematic exterior shot of a grand Joseon dynasty Korean palace\ncourtyard, completely empty with no people. In the foreground center,\na wide red

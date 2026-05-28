@@ -70,6 +70,23 @@ async def first_visible(
     raise SelectorMiss(label, dump) from last_error
 
 
+async def capture_process_shot(page: Page, out_dir: Path, item_id: str, step: str) -> None:
+    """Save a process-documentation screenshot to runs/<id>/process-doc/<stage>/.
+
+    Called at key moments during generation so the user has evidence of AI tool
+    usage for contest submission. Best-effort: never raises.
+    """
+    run_dir = CURRENT_RUN_DIR.get()
+    if run_dir is None:
+        return
+    dest = run_dir / "process-doc" / out_dir.name / f"{item_id}-{step}.png"
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        await page.screenshot(path=str(dest))
+    except Exception:
+        pass
+
+
 async def dump_debug(page: Page, label: str) -> Path | None:
     """Write `<run_dir>/debug/<ts>-<label>.{html,png}`. Best-effort."""
     run_dir = CURRENT_RUN_DIR.get()

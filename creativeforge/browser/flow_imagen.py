@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING
 
 from playwright.async_api import Page, expect
 
-from creativeforge.browser.selectors import LoginRequired, first_visible
+from creativeforge.browser.selectors import LoginRequired, capture_process_shot, first_visible
 
 if TYPE_CHECKING:
     from creativeforge.adapters.base import GenRequest, GenResult
@@ -211,10 +211,13 @@ async def generate_image(page: Page, req: "GenRequest", out_dir: Path) -> "GenRe
     await _open_image_tool(page)
     await _select_model(page, req.model)
     await _select_aspect_ratio(page, req.aspect_ratio or "9:16")
+    await capture_process_shot(page, out_dir, item_id, "1-ui-ready")
     await _upload_references(page, req.references)
     await _fill_prompt(page, req.prompt)
+    await capture_process_shot(page, out_dir, item_id, "2-prompt-entered")
     await _submit(page)
     await _wait_for_variants(page, expected=4)
+    await capture_process_shot(page, out_dir, item_id, "3-generated")
     dest = out_dir / f"{item_id}.png"
     path = await _download_first_variant(page, dest)
     return GenResult(

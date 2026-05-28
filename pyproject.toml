@@ -20,6 +20,9 @@ dev = [
     "pytest-asyncio>=0.23",
     "ruff>=0.5",
 ]
+pdf = [
+    "fpdf2>=2.7",
+]
 
 [project.scripts]
 creativeforge = "creativeforge.cli:app"
