@@ -58,6 +58,10 @@ Design and rationale: see the approved plan referenced in the commit body, summa
    - Process screenshots auto-save to `runs/<id>/process-doc/` — no manual work needed.
    - When Phase B is done, run `creativeforge process-doc <run_id> --html` to compile evidence for contest submission.
 
+   - **Operating rules live in `CLAUDE.md`** (auto-loaded each session): Extend vs.
+     fresh generation, draft-first credit strategy, and variant selection. Read it
+     before `s01_cut_images` / `s02_cut_videos`.
+
 ### DONE (completed in session 2026-05-28)
 
 2. ✅ **Regen loop** — `[r]` / `[e]` in the approval gate now actually re-dispatches flagged items inline and re-prompts. Tested with 11 unit tests.
@@ -70,10 +74,13 @@ Design and rationale: see the approved plan referenced in the commit body, summa
 9. ✅ **Cut image refs in s02_cut_videos** — each video item now references its matching cut image as start-frame (much better Veo quality).
 10. ✅ **Credit budgeting** (Gemini AI Pro = 1000 video credits/month; images unlimited).
     - `creativeforge/credits.py` — cost table (veo-3.1-high-quality 100, fast 20, lite 10; omni-flash 4s:15/6s:20/8s:25/10s:30 per video) × variant count.
-    - Per-cut `model` / `variants` / `duration_s` / `source` in `02-cut-videos.yaml`. Current allocation = **580 cr** (4 hero cuts at high-quality, 4 at fast), leaving ~420 for regenerations.
+    - Per-cut `model` / `variants` / `duration_s` / `source` in `02-cut-videos.yaml`. **Draft-first**: all 9 cuts start on `veo-3.1-fast` = **180 cr** (see `CLAUDE.md`); flip the 5 HERO cuts to high-quality on the polish pass.
     - `creativeforge credits musinsa-king-choice` prints the per-cut breakdown + remaining budget.
     - Pipeline prints the stage estimate before s02 and a running `+N credits` after each video; `state.json` tracks `credits_used` split by source. Over-budget prints a red warning (does not abort).
     - `source: gemini` marks a cut as generated via the regular Gemini app (Omni) — tracked in a **separate** pool so the 1000 Flow credits are conserved. The Gemini-Omni adapter itself is future work (no selectors yet); the budget plumbing is ready for it.
+11. ✅ **Draft-first credits** — all 9 cuts default to `veo-3.1-fast` (180 cr); HERO cuts upgrade to high-quality on a polish pass. Rule documented in `CLAUDE.md`.
+12. ✅ **Variant picker** — `GenResult.variant_paths`; Flow adapters download every rendered variant; approval gate `[v]` key + `select_variant` promote the chosen one to canonical. Biggest win on the free image stages.
+13. ✅ **`CLAUDE.md`** — agent operating guide (Extend rule, draft-first, variant pick, selector iteration) auto-loaded each session.
 
 ### Credit-related follow-ups for Phase B / later
 - The Veo adapter's `_select_output_count` (variants) is a first-guess selector stub — refine it live like the other Flow selectors.

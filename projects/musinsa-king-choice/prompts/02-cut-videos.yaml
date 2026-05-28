@@ -119,6 +119,9 @@ items:
     label: 조정 → 궁문 행진 + 문 닫힘 (3초) ⭐ NEW
     style: fashion
     model: veo-3.1-fast   # HERO — upgrade to veo-3.1-high-quality for the final polish pass (epic finale, last shot before title card)
+    # EXTEND CANDIDATE — one continuous take (march → gate closing). If 3s is too
+    # short or you want a longer hold on the closing doors, Extend the base clip
+    # rather than re-rolling. See CLAUDE.md "Extend vs. fresh generation".
     variants: 1
     duration_s: 3
     source: flow
