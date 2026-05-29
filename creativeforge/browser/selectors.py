@@ -87,8 +87,72 @@ async def capture_process_shot(page: Page, out_dir: Path, item_id: str, step: st
         pass
 
 
+# Selectors we can't guess are found fastest by eyeballing the page's actual
+# interactive elements. On a miss we dump this inventory next to the HTML/PNG so
+# the iterator gets a ready-made menu of locators instead of grepping raw DOM.
+_CANDIDATE_JS = r"""
+() => {
+  const sel = 'button,[role=button],a[href],input,textarea,select,'
+    + '[role=textbox],[role=combobox],[role=option],[contenteditable],[data-testid]';
+  const out = [];
+  for (const el of document.querySelectorAll(sel)) {
+    const r = el.getBoundingClientRect();
+    if (r.width <= 0 || r.height <= 0 || el.offsetParent === null) continue;
+    const text = (el.innerText || el.value || '').trim().replace(/\s+/g, ' ').slice(0, 60);
+    out.push({
+      tag: el.tagName.toLowerCase(),
+      role: el.getAttribute('role') || '',
+      ariaLabel: el.getAttribute('aria-label') || '',
+      text: text,
+      testid: el.getAttribute('data-testid') || '',
+      id: el.id || '',
+      placeholder: el.getAttribute('placeholder') || '',
+      type: el.getAttribute('type') || '',
+    });
+    if (out.length >= 200) break;
+  }
+  return out;
+}
+"""
+
+
+def _suggest_locator(c: dict) -> str:
+    """A copy-pasteable first-guess Playwright locator for one element."""
+    name = (c.get("ariaLabel") or c.get("text") or "").replace('"', "").replace("\\", "")
+    if c.get("testid"):
+        return f"lambda p: p.locator(\"[data-testid='{c['testid']}']\")"
+    if c.get("id"):
+        return f"lambda p: p.locator(\"#{c['id']}\")"
+    if name and c.get("role"):
+        return f'lambda p: p.get_by_role("{c["role"]}", name=re.compile(r"{name}", re.I))'
+    if name and c["tag"] in ("button", "a"):
+        role = "link" if c["tag"] == "a" else "button"
+        return f'lambda p: p.get_by_role("{role}", name=re.compile(r"{name}", re.I))'
+    if c.get("placeholder"):
+        ph = c["placeholder"].replace('"', "")
+        return f'lambda p: p.get_by_placeholder(re.compile(r"{ph}", re.I))'
+    if name:
+        return f'lambda p: p.get_by_text(re.compile(r"{name}", re.I))'
+    return f"lambda p: p.locator(\"{c['tag']}\")  # weak — add text/role"
+
+
+def _format_candidates(cands: list[dict]) -> str:
+    lines = [
+        "# Visible interactive elements at the selector miss.",
+        "# Pick the one you want, then PREPEND its locator to the candidate list for",
+        "# this action in flow_imagen.py / flow_veo.py (those files already import re).",
+        "",
+    ]
+    for i, c in enumerate(cands):
+        label = c.get("ariaLabel") or c.get("text") or c.get("placeholder") or "(no text)"
+        attrs = " ".join(f"{k}={c[k]!r}" for k in ("role", "testid", "id", "type") if c.get(k))
+        lines.append(f"[{i:02d}] <{c['tag']}> {label!r}  {attrs}".rstrip())
+        lines.append(f"     {_suggest_locator(c)}")
+    return "\n".join(lines) + "\n"
+
+
 async def dump_debug(page: Page, label: str) -> Path | None:
-    """Write `<run_dir>/debug/<ts>-<label>.{html,png}`. Best-effort."""
+    """Write `<run_dir>/debug/<ts>-<label>.{html,png,candidates.txt}`. Best-effort."""
     run_dir = CURRENT_RUN_DIR.get()
     base = (run_dir or Path(".tmp")) / "debug"
     base.mkdir(parents=True, exist_ok=True)
@@ -99,6 +163,14 @@ async def dump_debug(page: Page, label: str) -> Path | None:
     try:
         html_path.write_text(await page.content(), encoding="utf-8")
         await page.screenshot(path=str(png_path), full_page=True)
+    except Exception:
+        pass
+    # Element inventory — the fastest way to find the right selector on a miss.
+    try:
+        cands = await page.evaluate(_CANDIDATE_JS)
+        (base / f"{ts}-{safe}.candidates.txt").write_text(
+            _format_candidates(cands), encoding="utf-8"
+        )
     except Exception:
         pass
     return html_path
