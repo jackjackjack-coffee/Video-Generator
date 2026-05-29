@@ -13,14 +13,6 @@
 
 function Step($msg) { Write-Host "`n=== $msg ===" -ForegroundColor Cyan }
 
-function Invoke-Native {
-    param([string]$Exe, [string[]]$Args, [string]$What)
-    & $Exe @Args
-    if ($LASTEXITCODE -ne 0) {
-        Write-Host "FAILED: $What (exit $LASTEXITCODE)" -ForegroundColor Red
-        exit 1
-    }
-}
 
 # --- Python 3.12 check (tolerant of version going to stdout OR stderr) ---------
 Step "Python version (want 3.12.x; 3.13 lacks some prebuilt wheels)"
@@ -51,10 +43,12 @@ if ($branch -ne "claude/compassionate-brahmagupta-eKuPB") {
 
 # --- Install -------------------------------------------------------------------
 Step "Install creativeforge (editable)"
-Invoke-Native -Exe "python" -Args @("-m", "pip", "install", "-e", ".") -What "pip install -e ."
+python -m pip install -e .
+if ($LASTEXITCODE -ne 0) { Write-Host "FAILED: pip install -e . (exit $LASTEXITCODE)" -ForegroundColor Red; exit 1 }
 
 Step "Install Playwright Chromium"
-Invoke-Native -Exe "python" -Args @("-m", "playwright", "install", "chromium") -What "playwright install chromium"
+python -m playwright install chromium
+if ($LASTEXITCODE -ne 0) { Write-Host "FAILED: playwright install chromium (exit $LASTEXITCODE)" -ForegroundColor Red; exit 1 }
 
 # --- Free pre-flight (no credits spent) ---------------------------------------
 Step "doctor - adapters + environment health"
