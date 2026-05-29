@@ -77,6 +77,6 @@ class ProjectConfig(BaseModel):
     @classmethod
     def load(cls, project_dir: Path) -> "ProjectConfig":
         path = project_dir / "project.yaml"
-        with path.open() as f:
+        with path.open(encoding="utf-8") as f:
             data = yaml.load(f)
         return cls.model_validate(data)

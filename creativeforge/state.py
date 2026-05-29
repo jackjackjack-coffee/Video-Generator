@@ -33,12 +33,12 @@ class RunState:
     @classmethod
     def load(cls, run_dir: Path) -> "RunState":
         self = cls(run_dir)
-        with self.path.open() as f:
+        with self.path.open(encoding="utf-8") as f:
             self._data = json.load(f)
         return self
 
     def save(self) -> None:
-        with self.path.open("w") as f:
+        with self.path.open("w", encoding="utf-8") as f:
             json.dump(self._data, f, indent=2, ensure_ascii=False)
 
     def stage(self, stage_id: str) -> dict:

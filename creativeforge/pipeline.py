@@ -493,7 +493,7 @@ class Pipeline:
             "path": str(result.path),
         }
         (stage_dir / f"{item_id}.meta.json").write_text(
-            json.dumps(meta, indent=2, ensure_ascii=False)
+            json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8"
         )
 
     # -- helpers ------------------------------------------------------------
@@ -512,7 +512,7 @@ class Pipeline:
         return self._adapters[name]
 
     def _load_yaml(self, path: Path) -> dict:
-        with path.open() as f:
+        with path.open(encoding="utf-8") as f:
             return yaml.load(f) or {}
 
     def _topo_order(self) -> list[str]:
@@ -551,7 +551,7 @@ def plan_video_credits_for_spec(
     path = project_dir / spec.prompts_file
     if not path.exists():
         return None
-    with path.open() as f:
+    with path.open(encoding="utf-8") as f:
         data = yaml.load(f) or {}
     cuts = [{"id": cid, **(body or {})} for cid, body in (data.get("items") or {}).items()]
     return estimate_plan(cuts, default_model=spec.model, costs=cfg.credits.costs or None)

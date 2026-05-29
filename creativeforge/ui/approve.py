@@ -57,9 +57,9 @@ def select_variant(
         shutil.copyfile(chosen, canonical)
 
     state_path = run_dir / "state.json"
-    data = json.loads(state_path.read_text())
+    data = json.loads(state_path.read_text(encoding="utf-8"))
     data["stages"][stage_id]["items"][item_id]["path"] = str(canonical)
-    state_path.write_text(json.dumps(data, indent=2, ensure_ascii=False))
+    state_path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
     return canonical
 
 
@@ -88,7 +88,8 @@ def _edit_override(run_dir: Path, item_id: str, current_prompt: str) -> Path:
             "# Override the prompt for this item. The pipeline reads this on regenerate.\n"
             "prompt: |\n  "
             + current_prompt.replace("\n", "\n  ")
-            + "\n"
+            + "\n",
+            encoding="utf-8",
         )
     editor = os.environ.get("EDITOR") or ("notepad" if sys.platform.startswith("win") else "nano")
     subprocess.call([editor, str(path)])
@@ -99,7 +100,7 @@ def _load_stage_items(run_dir: Path, stage_id: str) -> dict[str, dict]:
     state_path = run_dir / "state.json"
     if not state_path.exists():
         return {}
-    data = json.loads(state_path.read_text())
+    data = json.loads(state_path.read_text(encoding="utf-8"))
     return ((data.get("stages") or {}).get(stage_id) or {}).get("items") or {}
 
 
@@ -189,7 +190,7 @@ async def approve_stage(stage_id: str, stage_dir: Path, run_dir: Path) -> "Appro
                 meta_path = stage_dir / f"{item_id}.meta.json"
                 if meta_path.exists():
                     try:
-                        prompt_text = json.loads(meta_path.read_text()).get("prompt", "")
+                        prompt_text = json.loads(meta_path.read_text(encoding="utf-8")).get("prompt", "")
                     except Exception:
                         pass
                 _edit_override(run_dir, item_id, prompt_text)
