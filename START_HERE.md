@@ -14,14 +14,43 @@ Two reading orders:
 
 ---
 
+## Prerequisites (install these yourself first — the setup script does NOT)
+
+| Tool | Install | Needed for |
+|------|---------|-----------|
+| **Python 3.12** (not 3.13) | `winget install -e --id Python.Python.3.12` | everything. **pip is bundled** — no separate install. |
+| **Git** | `winget install -e --id Git.Git` | cloning the repo |
+| **Node.js LTS** | `winget install -e --id OpenJS.NodeJS.LTS` | only the FINAL render stage (`s05_compose`, Remotion). NOT needed for Phase B selector work, but install now to avoid a surprise later. Playwright itself does not need system Node. |
+| Claude CLI | (you already have it) | running the local agent |
+
+`windows_setup.ps1` installs the rest for you: the `creativeforge` Python package
+and the Playwright Chromium browser.
+
+## Logins — what's automatic vs. manual
+
+- The browser **opens itself.** Both the login script and every `creativeforge run`
+  launch a visible Chromium automatically. You never open Flow by hand.
+- You sign in **once**, manually, during `python scripts/login_google_flow.py`.
+  It saves the session to `.auth/chrome-profile/`; later runs come up already
+  logged in. Re-run that script only if Flow shows a sign-in button again.
+- This is a **dedicated Chromium profile — NOT your everyday Chrome** and not the
+  Claude Chrome extension. Sign in inside the window that pops up.
+- **Gemini login is NOT required.** All generation goes through Google Flow only;
+  "gemini" in the code is just a credit-accounting label.
+
+---
+
 ## Commands (PowerShell)
 
-### One time: install Python 3.12, then OPEN A NEW TERMINAL
-> Use 3.12, not 3.13 — some deps lack 3.13 wheels. Skip if `python --version`
-> already prints `3.12.x`. The PATH only updates in a *fresh* terminal, so close
-> this one and open a new PowerShell after it finishes.
+### One time: install base tools, then OPEN A NEW TERMINAL
+> Use Python 3.12, not 3.13 — some deps lack 3.13 wheels. Skip any tool you
+> already have (`python --version`, `git --version`, `node --version`). The PATH
+> only updates in a *fresh* terminal, so close this one and open a new PowerShell
+> after these finish.
 ```powershell
 winget install -e --id Python.Python.3.12
+winget install -e --id Git.Git
+winget install -e --id OpenJS.NodeJS.LTS
 ```
 
 ### In the new terminal: set up and launch (copy-paste the whole block)
@@ -64,5 +93,13 @@ solid there before touching s02 video. Do NOT run s02 without telling me the
 credit estimate first.
 ```
 
-That's it. The agent drives `creativeforge`; you watch the browser window it
-opens and approve/pick variants at the gate.
+## Who does what
+
+- **The agent** runs `creativeforge`, reads the `candidates.txt` dump on a selector
+  miss, and edits `flow_imagen.py` / `flow_veo.py` to prepend the right locator,
+  then re-runs. You do **not** edit Python yourself.
+- **You** handle only the human parts: the one-time Google sign-in; solving a
+  CAPTCHA if Flow shows one (the run pauses for it, then you press ENTER); the
+  approval gate (`a` approve / `v` pick best variant / `r` regenerate / `s` skip /
+  `q` quit); and answering the agent if it asks which on-screen element it should
+  target.
