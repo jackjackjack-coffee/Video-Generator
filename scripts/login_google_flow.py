@@ -66,6 +66,20 @@ def _find_chrome() -> str | None:
     return None
 
 
+def _looks_signed_in(storage_state: dict) -> bool:
+    """True if the snapshot has Google auth cookies (no page selectors involved).
+
+    Google sets SID/SAPISID/SSID/__Secure-1PSID on .google.com domains once
+    signed in. Checking cookies (not the DOM) keeps this robust against Flow's
+    shifting UI.
+    """
+    auth_names = {"SID", "SAPISID", "SSID", "HSID", "__Secure-1PSID", "__Secure-3PSID"}
+    for c in (storage_state or {}).get("cookies", []):
+        if c.get("name") in auth_names and "google" in (c.get("domain") or ""):
+            return True
+    return False
+
+
 async def _wait_for_cdp(timeout_s: float = 30.0) -> bool:
     """Poll the DevTools endpoint until Chrome is ready (or timeout)."""
     deadline = time.time() + timeout_s
@@ -129,22 +143,31 @@ async def main() -> int:
     await asyncio.get_running_loop().run_in_executor(None, input)
 
     # Attach (do NOT launch) and snapshot the session as a portable fallback.
+    signed_in = False
     try:
         async with async_playwright() as pw:
             browser = await pw.chromium.connect_over_cdp(f"http://127.0.0.1:{CDP_PORT}")
             ctx = browser.contexts[0] if browser.contexts else await browser.new_context()
-            await ctx.storage_state(path=str(STORAGE_STATE))
+            state = await ctx.storage_state(path=str(STORAGE_STATE))
+            signed_in = _looks_signed_in(state)
             print(f"Saved storage_state → {STORAGE_STATE}")
             # Disconnect only; leave the user's Chrome running so they can close it.
     except Exception as e:
         print(f"[warn] could not snapshot storage_state via CDP: {e}")
         print("       The on-disk profile still holds your login, so generation should work anyway.")
 
+    if not signed_in:
+        print(
+            "\n[warn] Could not confirm a Google sign-in in this profile (no Google auth\n"
+            "       cookies found). If Flow still showed a sign-in button, complete the\n"
+            "       login and re-run this script before generating."
+        )
+
     print(
         "\nDone. IMPORTANT: close that Chrome window now so the profile is free for generation.\n"
         "Then run:  creativeforge run musinsa-king-choice --only s00_character_sheets"
     )
-    return 0
+    return 0 if signed_in else 2
 
 
 if __name__ == "__main__":
