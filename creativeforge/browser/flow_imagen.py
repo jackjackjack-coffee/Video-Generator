@@ -54,6 +54,13 @@ async def _open_image_tool(page: Page) -> None:
     btn = await first_visible(
         page,
         [
+            # 2026 Flow hub: no standalone "Image" button — open a new project, which
+            # lands on the canvas (prompt bar + image/video tool + model picker).
+            # Locale-independent: bilingual text alternation, falls back to the add_2 icon.
+            lambda p: p.get_by_role("button", name=re.compile(r"새 프로젝트|new project", re.I)),
+            lambda p: p.locator("button:has(i.google-symbols:text-is('add_2'))"),
+            lambda p: p.get_by_role("button", name=re.compile(r"add_2", re.I)),
+            # Older / English-only Flow layouts.
             lambda p: p.get_by_role("link", name=re.compile(r"image", re.I)),
             lambda p: p.get_by_role("button", name=re.compile(r"image", re.I)),
             lambda p: p.get_by_text(re.compile(r"^image$", re.I)),
@@ -69,6 +76,10 @@ async def _select_model(page: Page, model: str | None) -> None:
     picker = await first_visible(
         page,
         [
+            # 2026 agentic Flow: model/aspect/output settings live behind the
+            # prompt-bar "tune 설정" gear. Match the locale-independent icon name.
+            lambda p: p.get_by_role("button", name=re.compile(r"tune", re.I)),
+            # Older canvas layouts.
             lambda p: p.get_by_role("button", name=re.compile(r"model", re.I)),
             lambda p: p.locator("button:has-text('Imagen')"),
             lambda p: p.locator("[data-testid*=model]"),

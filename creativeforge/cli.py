@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import os
 import shutil
+import sys
 from datetime import datetime
 from pathlib import Path
 
@@ -16,6 +17,30 @@ from creativeforge.adapters import base as _adapter_base  # ensures registry pop
 import creativeforge.adapters  # noqa: F401 — populates registry
 from creativeforge.config import ProjectConfig
 from creativeforge.pipeline import Pipeline, run_pipeline
+
+
+def _force_utf8_stdio() -> None:
+    """Make console output encoding-safe on non-UTF-8 locales (e.g. Korean cp949).
+
+    rich renders through ``sys.stdout``; on a cp949 console that stream can't
+    encode the UI's bullets/em-dashes (``•`` ``—``) or Korean text, so a render
+    crashes with ``UnicodeEncodeError`` mid-run. Reconfiguring stdio to UTF-8
+    makes modern terminals (Windows Terminal, codepage 65001) render correctly;
+    ``errors="replace"`` keeps legacy consoles from crashing (worst case: a few
+    replacement chars). Mutates the existing streams in place, so Console
+    instances created elsewhere pick it up regardless of import order.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is None:
+            continue
+        try:
+            reconfigure(encoding="utf-8", errors="replace")
+        except (ValueError, OSError):
+            pass
+
+
+_force_utf8_stdio()
 
 app = typer.Typer(add_completion=False, help="creativeforge — multi-project AI video pipeline")
 console = Console()
