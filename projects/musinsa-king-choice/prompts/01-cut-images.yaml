@@ -3,82 +3,91 @@ defaults:
 items:
   cut01:
     label: 수양대군 등장
+    style: drama
     references:
-    - Sheet 3 (Suyang)
-    - Sheet 4 (Throne Hall)
+    - sheet3-suyang
+    - sheet4-throne-hall
     prompt: "Cinematic close-up shot of Prince Suyang, a stern middle-aged Korean\nnobleman in his 40s with a thick black beard and piercing eyes, wearing\na dark navy embroidered Joseon dynasty official
       robe and a tall black\nsilk hat (samo). He stands menacingly in the grand throne hall of a\nKorean royal palace. Behind him, blurred silhouettes of royal guards in\narmor holding spears stand in formation.
       Dramatic side lighting from\npaper lantern, deep shadows, dust particles floating in the air. Dark\nmoody color palette with crimson and gold accents. Photorealistic,\ncinematic, historical drama
       style, 9:16 vertical aspect ratio,\nultra-detailed, shallow depth of field."
   cut02:
     label: 단종·신하 무릎
+    style: drama
     references:
-    - Sheet 1 (Danjong-Royal)
-    - Sheet 4 (Throne Hall)
+    - sheet1-danjong-royal
+    - sheet4-throne-hall
     prompt: "Emotional close-up of young King Danjong, a 13-year-old Korean boy\nking with pale delicate face and large tearful eyes, wearing a bright\nred royal dragon robe (gonryongpo) with golden dragon
       embroidery and a\ntraditional black silk crown with golden ornament (ikseongwan). He\nkneels on a wooden palace floor, a single tear rolling down his cheek.\nIn the soft-focus background, several
       court eunuchs and palace maids in\nwhite traditional Korean robes are kneeling and bowing deeply, some\nquietly weeping. Warm candlelight from oil lamps, golden hour glow\nthrough paper screen windows.
       Heartbreaking, somber atmosphere.\nPhotorealistic, cinematic, historical drama style, 9:16 vertical\naspect ratio, shallow depth of field on Danjong's face."
   cut03:
     label: 수양 위협 대사
+    style: drama
     references:
-    - Sheet 3 (Suyang)
-    - Sheet 4 (Throne Hall)
+    - sheet3-suyang
+    - sheet4-throne-hall
     prompt: "Medium shot of Prince Suyang, a stern middle-aged Korean nobleman in\ndark navy embroidered Joseon robe and tall black silk hat, standing\nproudly with one hand raised in a commanding gesture.
       He is mid-speech,\nmouth open authoritatively, in the grand throne room of a Korean royal\npalace. Ornate red wooden pillars, painted ceiling beams (dancheong)\nwith green and gold patterns visible
       behind him. A large folding\nscreen (byeongpung) with painted mountains stands in the background.\nStrong directional light from above creating dramatic shadows on his\nface. Tense, intimidating mood.
       Photorealistic, cinematic, historical\nKorean drama style, 9:16 vertical aspect ratio, sharp focus on Suyang."
   cut04:
     label: 단종-수양 대화 + 수하 보고
+    style: drama
     references:
-    - Sheet 1 (Danjong-Royal)
-    - Sheet 3 (Suyang)
-    - Sheet 4 (Throne Hall)
+    - sheet1-danjong-royal
+    - sheet3-suyang
+    - sheet4-throne-hall
     prompt: "Wide two-shot composition: young King Danjong in red royal dragon robe\nsits on a low ornate wooden throne on an elevated platform, looking\ndown with helpless expression. Prince Suyang in
       dark navy embroidered\nrobe stands below the platform facing him. In the background, a third\nfigure — a Joseon military officer in armor with red sash — rushes in\nthrough the open palace doors,
       kneeling on one knee to report. Grand\nKorean palace interior with painted dancheong ceiling, red pillars,\nhanging lanterns. Cinematic wide angle, tense political atmosphere,\ngolden hour light filtering
       through the doors. Photorealistic,\nhistorical Korean drama style, 9:16 vertical aspect ratio."
   cut05:
     label: 단종 무진장 절규
+    style: drama
     references:
-    - Sheet 1 (Danjong-Royal)
+    - sheet1-danjong-royal
     prompt: "Dramatic extreme close-up of young King Danjong's face, a 13-year-old\nKorean boy king, eyes welling with large glistening tears about to\nfall, mouth open in an emotional cry. He wears the
       traditional black\nsilk crown (ikseongwan) with golden ornament. Soft warm candlelight\nilluminates one side of his face, the other half in shadow. Background\nis blurred dark palace interior with
       faint orange glow. Tears reflect\ncandlelight. Heartbreaking, almost comedic-tragic expression — eyes\nwide open in despair. Photorealistic, cinematic close-up, historical\nKorean drama style, 9:16
       vertical aspect ratio, extreme shallow depth\nof field."
   cut06:
     label: 변신 시퀀스
+    style: fashion
     references:
-    - Sheet 4 (Throne Hall) — 단종은 실루엣이라 시트 불필요
+    - sheet4-throne-hall
     prompt: "Stylized split-composition shot inside a Joseon palace room: in the\nforeground, a tall traditional Korean folding screen (byeongpung) with\npainted plum blossoms is partially raised. Behind
       the screen, a\nsilhouette of young King Danjong is changing clothes — visible only\nas a shadow. To the side, a kindly middle-aged Korean woman in palace\nmaid attire (nanny/yumo) holds out a modern
       stylish outfit: an\noversized white hoodie, black cargo pants, and white sneakers — clearly\ncontemporary streetwear. Bright warm light, playful and whimsical\natmosphere with subtle sparkles in the
       air. Cinematic but slightly\ncomedic tone, photorealistic, 9:16 vertical aspect ratio."
   cut07:
     label: 단종 현대 패션 선포
+    style: fashion
     references:
-    - Sheet 2 (Danjong-Modern)
-    - Sheet 4 (Throne Hall)
+    - sheet2-danjong-modern
+    - sheet4-throne-hall
     prompt: "Confident medium shot of young King Danjong, a 13-year-old Korean boy,\nnow wearing modern trendy streetwear: an oversized cream white hoodie,\nrelaxed black cargo pants, fresh white sneakers,
       and still wearing his\ntraditional black silk royal crown (ikseongwan) with golden ornament on\ntop of his head. His eyes are still slightly red from crying but his\nposture is bold and confident,
       one hand on his hip. He stands in the\nornate Joseon palace throne room with red pillars and painted ceiling\nbehind him. Surreal contrast between historical setting and modern\nfashion. Bright cinematic
       lighting, slight rim light. Playful yet cool\natmosphere. Photorealistic, fashion editorial style mixed with\nhistorical drama, 9:16 vertical aspect ratio."
   cut08:
     label: 수양 충격·무릎
+    style: fashion
     references:
-    - Sheet 3 (Suyang)
-    - Sheet 4 (Throne Hall)
+    - sheet3-suyang
+    - sheet4-throne-hall
     prompt: "Dramatic medium shot of Prince Suyang, the stern middle-aged Korean\nnobleman with thick beard, his eyes wide open in utter shock and awe,\nmouth slightly agape. He is dropping to his knees
       on the wooden palace\nfloor, both hands placed on the ground in deep bow, a single tear\nrunning down his cheek. His dark navy embroidered Joseon official robe\nflows around him. Background is the
       grand palace throne hall with red\npillars and painted ceiling, slightly blurred. Strong dramatic backlit\nlighting creating a halo effect. Overwhelmed, awestruck expression.\nPhotorealistic, cinematic,
       historical Korean drama style with comedic\novertone, 9:16 vertical aspect ratio."
   cut09:
     label: 조정 → 궁문 행진 + 문 닫힘 (25~28s) ⭐ NEW
+    style: fashion
     references:
-    - Sheet 2 (Danjong-Modern)
-    - Sheet 3 (Suyang)
-    - Sheet 5 (Palace Exterior)
-    - '`public/musinsa-logo.png`'
+    - sheet2-danjong-modern
+    - sheet3-suyang
+    - sheet5-palace-exterior
+    - branding/musinsa-logo.png
     prompt: "Reference images provided: (1) Sheet 2 — Danjong modern fashion,\n(2) Sheet 3 — Prince Suyang, (3) Sheet 5 — Palace exterior with KV\nflags, (4) Musinsa Mujinjang KV artwork.\n\nUse the same
       characters and palace background as reference images 1–3.\nUse reference image 4 as the printed graphic design on all hanging\nflags — do NOT generate any Korean text or typography on your own.\n\n\
       Epic cinematic wide tracking shot from a low angle, viewed from\nbehind. In the foreground center, young King Danjong (13-year-old\nKorean boy with same face as reference image 1) walks confidently

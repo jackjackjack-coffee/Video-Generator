@@ -28,12 +28,12 @@ class EdgeTtsAdapter:
 
     DEFAULT_VOICE = "ko-KR-InJoonNeural"
 
-    # SSML wrappers for stylistic tones. Sajǔk (사극) = pitch down + slower rate.
+    # edge-tts: pitch must be ±NHz, rate ±N%. Sajǔk (사극) = pitch down + slower rate.
     STYLE_SSML: dict[str, dict[str, str]] = {
-        "stern": {"pitch": "-10%", "rate": "-8%"},
-        "tearful": {"pitch": "-5%", "rate": "-15%"},
-        "comic": {"pitch": "+8%", "rate": "+10%"},
-        "royal": {"pitch": "-12%", "rate": "-10%"},
+        "stern": {"pitch": "-12Hz", "rate": "-8%"},
+        "tearful": {"pitch": "-8Hz", "rate": "-15%"},
+        "comic": {"pitch": "+10Hz", "rate": "+10%"},
+        "royal": {"pitch": "-15Hz", "rate": "-10%"},
     }
 
     async def synthesize(

@@ -10,12 +10,12 @@ project:
 stages:
   s00_character_sheets:
     adapter: google_flow_imagen
-    model: imagen-4-ultra
+    model: imagen-4              # Imagen 4 Ultra retired from Flow (2026); Imagen 4 is the surviving Imagen tier. See DECISIONS 2026-05-31.
     aspect_ratio: 9:16
     prompts_file: prompts/00-character-sheets.yaml
   s01_cut_images:
     adapter: google_flow_imagen
-    model: imagen-4-ultra
+    model: imagen-4              # was imagen-4-ultra (retired) — see DECISIONS 2026-05-31
     aspect_ratio: 9:16
     prompts_file: prompts/01-cut-images.yaml
     depends_on:
@@ -27,8 +27,11 @@ stages:
     depends_on:
     - s01_cut_images
   s03_voice:
-    adapter: edge_tts
-    voice: ko-KR-InJoonNeural
+    adapter: edge_tts          # free scratch track — unofficial endpoint, not commercial-cleared
+    # adapter: voicebox        # commercial-clean final dub (Kokoro/Chatterbox-Turbo, MIT/Apache-2.0)
+    #                          # requires Voicebox app running — see CLAUDE.md "Voice strategy"
+    voice: ko-KR-InJoonNeural  # edge_tts voice; change to a Voicebox profile name when switching
+    # voice: af_heart          # example Voicebox profile (Korean-capable); check /docs for full list
     fallback_adapter: clova
     enabled: true
   s04_audio:
@@ -47,3 +50,12 @@ browser:
   storage_state: ../../.auth/google.json
   user_data_dir: ../../.auth/chrome-profile
 storyboard_file: storyboard.yaml
+credits:
+  monthly_budget: 1000
+visual_style:
+  drama:
+    palette: "deep navy and black shadows, rich crimson red accents, warm gold and amber candlelight, high-contrast cinematic grade, dust-particle atmosphere"
+    suffix: "Color grade: dark cinematic — deep navy shadows, crimson and gold accents, warm candlelight. Korean historical drama premium look."
+  fashion:
+    palette: "bright clean whites and creams, editorial soft lighting, vibrant yet refined, high-contrast fashion campaign energy"
+    suffix: "Color grade: bright editorial — clean whites, warm creams, vibrant Musinsa fashion campaign energy."

@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import shutil
 from pathlib import Path
 from typing import Any
 
@@ -20,7 +19,7 @@ yaml = YAML(typ="safe")
 
 
 def _load_storyboard(project_dir: Path) -> dict[str, Any]:
-    with (project_dir / "storyboard.yaml").open() as f:
+    with (project_dir / "storyboard.yaml").open(encoding="utf-8") as f:
         return yaml.load(f)
 
 
@@ -74,7 +73,7 @@ export const SUBTITLES: {{ start: number; end: number; text: string }}[] = {_ts_
     out_dir = project_dir / "remotion" / "src" / "generated"
     out_dir.mkdir(parents=True, exist_ok=True)
     manifest_path = out_dir / "manifest.ts"
-    manifest_path.write_text(ts_content)
+    manifest_path.write_text(ts_content, encoding="utf-8")
     return manifest_path
 
 
