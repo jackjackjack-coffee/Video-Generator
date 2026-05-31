@@ -61,6 +61,15 @@ class RunState:
         self._data["model_versions"][adapter_name] = model
         self.save()
 
+    def first_incomplete_stage(self, order: list[str]) -> str | None:
+        """First stage in `order` not yet finished (approved/skipped). None if all done."""
+        done = {"approved", "skipped"}
+        for sid in order:
+            st = self._data["stages"].get(sid)
+            if st is None or st.get("status") not in done:
+                return sid
+        return None
+
     @property
     def data(self) -> dict:
         return self._data

@@ -69,7 +69,11 @@ Design and rationale: see the approved plan referenced in the commit body, summa
 
 2. **Regenerate loop wiring**. `ui/approve.py` reports `regen` but `pipeline._run_stage` only logs the decision. Wire `regen` → re-run flagged items in place, then re-prompt. Look for the `# Regenerations happen inline ...` comment in `pipeline.py:_run_stage`.
 
-3. **`resume <run_id>`** — load `state.json`, find the first non-`approved` stage, restart `Pipeline` from there. The infrastructure (`RunState.load`, `--from`) exists; needs a thin wrapper that derives the start stage automatically.
+3. ✅ **`resume <run_id>`** — DONE. Loads `state.json`, derives the first non-`approved`/`skipped`
+   stage, and restarts the pipeline **in the same run folder** (so prior artifacts + the references
+   downstream stages resolve from them survive). Items already recorded `ok` with their file on
+   disk are skipped, so a resume doesn't re-spend credits; delete an artifact to force its regen.
+   Usage: `creativeforge resume <run_id> [--auto-approve] [--from <stage>] [--dry-run]`.
 
 ### Medium priority
 
@@ -96,6 +100,8 @@ creativeforge list                                         # shows musinsa-king-
 creativeforge run musinsa-king-choice --dry-run --auto-approve   # full plan, no adapter calls
 creativeforge run musinsa-king-choice --only s03_voice --auto-approve   # real edge-tts call
 creativeforge run musinsa-king-choice --from s03_voice     # resume-style start
+creativeforge resume <run_id> --dry-run --auto-approve     # resume plan for an existing run
+python -m creativeforge doctor                             # fallback if `creativeforge` not on PATH
 ```
 
 To test the Pixabay adapter standalone:

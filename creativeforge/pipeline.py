@@ -82,6 +82,7 @@ class Pipeline:
         auto_approve: bool = False,
         only: str | None = None,
         from_stage: str | None = None,
+        resume: bool = False,
     ):
         self.cfg = cfg
         self.project_dir = project_dir
@@ -90,6 +91,7 @@ class Pipeline:
         self.auto_approve = auto_approve
         self.only = only
         self.from_stage = from_stage
+        self.resume = resume
         self.state: RunState | None = None
         self._adapters: dict[str, Any] = {}
 
@@ -97,13 +99,28 @@ class Pipeline:
 
     async def run(self) -> None:
         self.run_dir.mkdir(parents=True, exist_ok=True)
-        self.state = RunState.create(
-            self.run_dir,
-            project_id=self.cfg.project.id,
-            config_snapshot=self.cfg.model_dump(mode="json"),
-        )
+        if self.resume:
+            # Reuse the existing run folder + state so prior artifacts (and the
+            # references that downstream stages resolve from them) survive.
+            self.state = RunState.load(self.run_dir)
+            console.print(f"[green]Resuming run:[/green] {self.run_dir.name}")
+        else:
+            self.state = RunState.create(
+                self.run_dir,
+                project_id=self.cfg.project.id,
+                config_snapshot=self.cfg.model_dump(mode="json"),
+            )
 
         order = self._topo_order()
+
+        if self.resume and not self.from_stage and not self.only:
+            start = self.state.first_incomplete_stage(order)
+            if start is None:
+                console.print("[green]✓ Nothing to resume — all stages already approved.[/green]")
+                return
+            self.from_stage = start
+            console.print(f"[yellow]→ first incomplete stage: {start}[/yellow]")
+
         if self.from_stage:
             if self.from_stage not in order:
                 raise StageError(f"--from {self.from_stage}: stage not in plan")
@@ -168,8 +185,29 @@ class Pipeline:
         stage_dir: Path,
         item: Item,
     ) -> None:
+        if self.resume and self._item_already_done(stage_id, item):
+            console.print(f"  • [bold]{item.id}[/bold] — [dim]already done, skipping[/dim]")
+            return
         info = await self._dispatch(stage_id, spec, kind, stage_dir, item)
         self.state.record_item(stage_id, item.id, info)
+
+    def _item_already_done(self, stage_id: str, item: Item) -> bool:
+        """True if the item is recorded 'ok' and its artifact(s) still exist on disk.
+
+        Lets `resume` re-enter a stage to re-open its approval gate without
+        re-generating (and re-paying for) items that already succeeded. Delete an
+        artifact to force its regeneration on the next resume.
+        """
+        rec = (
+            self.state.data.get("stages", {})
+            .get(stage_id, {})
+            .get("items", {})
+            .get(item.id)
+        )
+        if not rec or rec.get("status") != "ok":
+            return False
+        paths = [p for p in [rec.get("path"), *(rec.get("paths") or [])] if p]
+        return bool(paths) and all(Path(p).exists() for p in paths)
 
     # -- adapter dispatch ---------------------------------------------------
 
@@ -439,6 +477,7 @@ async def run_pipeline(
     auto_approve: bool = False,
     only: str | None = None,
     from_stage: str | None = None,
+    resume: bool = False,
 ) -> None:
     p = Pipeline(
         cfg=cfg,
@@ -448,5 +487,6 @@ async def run_pipeline(
         auto_approve=auto_approve,
         only=only,
         from_stage=from_stage,
+        resume=resume,
     )
     await p.run()

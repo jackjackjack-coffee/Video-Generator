@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from datetime import datetime
 from pathlib import Path
 
@@ -95,13 +96,54 @@ def run(
 
 
 @app.command()
-def resume(run_id: str) -> None:
-    """Resume an existing run from its last incomplete stage."""
+def resume(
+    run_id: str = typer.Argument(..., help="run id under runs/ (folder name)"),
+    auto_approve: bool = typer.Option(False, "--auto-approve", help="Skip approval gates."),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Show the resume plan; no adapter calls."),
+    from_stage: str = typer.Option(None, "--from", help="Override: resume from this stage id."),
+) -> None:
+    """Resume an existing run from its first incomplete stage.
+
+    Reuses the SAME run folder, so artifacts already produced (and the references
+    downstream stages resolve from them) are kept. Stages already approved are
+    skipped; within the resumed stage, items already generated are not re-made.
+    """
     run_dir = Path("runs") / run_id
-    if not (run_dir / "state.json").exists():
+    state_path = run_dir / "state.json"
+    if not state_path.exists():
         console.print(f"[red]No state.json at {run_dir}[/red]")
         raise typer.Exit(1)
-    console.print(f"[yellow]resume not implemented yet — would pick up from state.json at {run_dir}[/yellow]")
+
+    state = json.loads(state_path.read_text())
+    project = state.get("project")
+    project_dir = Path("projects") / (project or "")
+    if not project or not project_dir.exists():
+        console.print(f"[red]Project from state not found: {project_dir}[/red]")
+        raise typer.Exit(1)
+
+    cfg = ProjectConfig.load(project_dir)
+    console.print(f"[green]Resuming:[/green] {run_id}  [green]Project:[/green] {cfg.project.title}")
+
+    stages = state.get("stages", {})
+    table = Table(title="Stage status (from state.json)")
+    table.add_column("stage")
+    table.add_column("status")
+    for sid in cfg.stages:
+        table.add_row(sid, stages.get(sid, {}).get("status", "pending"))
+    console.print(table)
+
+    asyncio.run(
+        run_pipeline(
+            cfg=cfg,
+            project_dir=project_dir,
+            run_dir=run_dir,
+            dry_run=dry_run,
+            auto_approve=auto_approve,
+            only=None,
+            from_stage=from_stage,
+            resume=True,
+        )
+    )
 
 
 if __name__ == "__main__":
