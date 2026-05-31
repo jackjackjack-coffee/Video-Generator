@@ -67,7 +67,9 @@ Design and rationale: see the approved plan referenced in the commit body, summa
    match on text, never the id. **9:16 maps to the `crop_9_16` token** (the old code passed
    the literal `9:16` and missed; `_ASPECT_TOKENS` in `flow_imagen.py` now maps it).
 
-2. **Regenerate loop wiring**. `ui/approve.py` reports `regen` but `pipeline._run_stage` only logs the decision. Wire `regen` → re-run flagged items in place, then re-prompt. Look for the `# Regenerations happen inline ...` comment in `pipeline.py:_run_stage`.
+2. ✅ **Regenerate loop wiring** — DONE. `approve_stage` now returns `(decision, regen_ids)`;
+   `pipeline._run_stage` loops: gate → re-dispatch the flagged items in place (picking up any `[e]`
+   prompt override) → re-open the gate, until you approve/skip everything (or `q`).
 
 3. ✅ **`resume <run_id>`** — DONE. Loads `state.json`, derives the first non-`approved`/`skipped`
    stage, and restarts the pipeline **in the same run folder** (so prior artifacts + the references
@@ -89,6 +91,22 @@ Design and rationale: see the approved plan referenced in the commit body, summa
 10. Approval gate web UI (FastAPI + simple HTML) — easier preview than `xdg-open`.
 11. Parallel item generation within a stage.
 12. AI-process auto-capture → PDF for festival submission.
+
+## Generating images by hand (no automation)
+
+If you make the character sheets / cut images by hand in Flow instead of running the
+adapters, drop the downloaded files into **`projects/musinsa-king-choice/references/`**
+named by their reference number — `sheet1.png … sheet5.png` (per
+`prompts/00-character-sheets.yaml`), and `cut03.png` etc. for hand-made cut frames.
+`Pipeline._resolve_references` now checks that folder (after the run's own stage output),
+so downstream stages resolve them automatically. Then run only the stages you still need,
+e.g. skip image generation:
+
+```bash
+creativeforge run musinsa-king-choice --from s01_cut_images   # sheets came from references/
+# or, if you hand-make everything visual, jump straight to voice/audio/compose:
+creativeforge run musinsa-king-choice --from s03_voice
+```
 
 ## How to verify what works right now
 

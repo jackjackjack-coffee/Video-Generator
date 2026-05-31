@@ -168,12 +168,26 @@ class Pipeline:
         if kind != "compose" and not self.auto_approve and self.cfg.approval.mode == "gate":
             from creativeforge.ui.approve import approve_stage
 
-            decision = await approve_stage(stage_id, stage_dir, self.run_dir)
-            if decision == "quit":
-                self.state.set_stage_status(stage_id, "aborted")
-                raise StageError(f"User aborted at {stage_id}")
-            # Regenerations happen inline inside approve_stage via the regen callback
-            # (it calls back into the pipeline). For MVP we just record approval here.
+            # Gate → regenerate flagged items in place → re-open the gate, until the
+            # user approves/skips everything (or quits). `[e]` writes a prompt override
+            # that the re-dispatch picks up via _apply_override.
+            while True:
+                decision, regen_ids = await approve_stage(stage_id, stage_dir, self.run_dir)
+                if decision == "quit":
+                    self.state.set_stage_status(stage_id, "aborted")
+                    raise StageError(f"User aborted at {stage_id}")
+                if decision == "regen" and regen_ids:
+                    items_by_id = {it.id: it for it in self._resolve_items(stage_id, spec, kind)}
+                    for rid in regen_ids:
+                        it = items_by_id.get(rid)
+                        if it is None:
+                            console.print(f"  [yellow]regen: item {rid} not found, skipping[/yellow]")
+                            continue
+                        console.rule(f"[magenta]↻ regenerate {rid}[/magenta]")
+                        info = await self._dispatch(stage_id, spec, kind, stage_dir, it)
+                        self.state.record_item(stage_id, it.id, info)
+                    continue  # re-open the gate with the fresh artifacts
+                break
 
         self.state.set_stage_status(stage_id, "approved")
 
@@ -362,34 +376,44 @@ class Pipeline:
     # -- references / overrides / meta --------------------------------------
 
     def _resolve_references(self, refs: list[str]) -> list[Path]:
-        """Best-effort: 'Sheet 3 (Suyang)' -> stage-00 file starting with 'sheet3'.
+        """Resolve reference labels (e.g. 'Sheet 3 (Suyang)') to image files.
 
-        Misses are logged but don't abort — the adapter may still produce a
-        useful result, and the user can fix labels in DECISIONS.md follow-ups.
+        Looks in this run's stage-00 / stage-01 output first, then the project's
+        `references/` folder — so hand-made images dropped in
+        `projects/<id>/references/` (named sheet1.png, cut03.png, …) are picked up
+        without running the generator. Misses are logged but don't abort.
         """
         out: list[Path] = []
-        sheets_dir = self.run_dir / stage_subdir("s00_character_sheets")
-        cut_imgs_dir = self.run_dir / stage_subdir("s01_cut_images")
+        refs_dir = self.project_dir / "references"
+        sheet_dirs = [self.run_dir / stage_subdir("s00_character_sheets"), refs_dir]
+        cut_dirs = [self.run_dir / stage_subdir("s01_cut_images"), refs_dir]
+        exts = ("png", "jpg", "jpeg", "webp")
         for ref in refs:
             m = re.search(r"sheet\s*(\d+)", ref, re.I)
             if m:
-                num = m.group(1)
-                hits = list(sheets_dir.glob(f"sheet{num}*.png")) + list(
-                    sheets_dir.glob(f"sheet{num}*.jpg")
-                )
-                if hits:
-                    out.append(hits[0])
+                hit = self._first_image(sheet_dirs, f"sheet{m.group(1)}", exts)
+                if hit:
+                    out.append(hit)
                     continue
             m = re.search(r"cut\s*0*(\d+)", ref, re.I)
             if m:
-                hits = list(cut_imgs_dir.glob(f"cut{int(m.group(1)):02d}*.png")) + list(
-                    cut_imgs_dir.glob(f"cut{int(m.group(1)):02d}*.jpg")
-                )
-                if hits:
-                    out.append(hits[0])
+                hit = self._first_image(cut_dirs, f"cut{int(m.group(1)):02d}", exts)
+                if hit:
+                    out.append(hit)
                     continue
             console.print(f"    [yellow]reference unresolved: {ref!r}[/yellow]")
         return out
+
+    @staticmethod
+    def _first_image(dirs: list[Path], stem_prefix: str, exts: tuple[str, ...]) -> Path | None:
+        for d in dirs:
+            if not d.is_dir():
+                continue
+            for ext in exts:
+                hits = sorted(d.glob(f"{stem_prefix}*.{ext}"))
+                if hits:
+                    return hits[0]
+        return None
 
     def _apply_override(self, item: Item) -> str:
         override_dir = self.run_dir / "prompt-overrides"
