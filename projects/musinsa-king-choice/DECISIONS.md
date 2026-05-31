@@ -4,6 +4,15 @@
 
 ---
 
+## 2026-05-31 — 이미지 모델 결정: Imagen 4 (Imagen 4 Ultra 단종 확인)
+
+- **프로브**: `scripts/probe_image_models.py`로 라이브 Flow 이미지 모델 드롭다운(에이전트 설정 패널)을 열어 실제 가용 목록 확인. 결과 **딱 3종**: `🍌 Nano Banana Pro`, `🍌 Nano Banana 2`(현재 기본값), `Imagen 4`. **`Imagen 4 Ultra`는 드롭다운에서 사라짐** — 프로젝트 기준 모델이 더 이상 존재하지 않음. (스크린샷: `runs/probe-image-models-20260531-183318/debug/image-model-dropdown-open.png`)
+- **결정 — 이미지 모델 = `Imagen 4`**: 원래 의도(Imagen 4 Ultra의 포토리얼 룩)에 가장 가까운 잔존 Imagen 티어 유지. `project.yaml` s00/s01의 `model: imagen-4-ultra` → `imagen-4`로 변경. "도구 정책(변경 금지)" 이미지 항목도 갱신(사용자 승인 완료).
+  - 검토한 대안: Nano Banana Pro(캐릭터 일관성·한글 텍스트 렌더링 우위 — sheet5 KV 깃발에 유리)와 Nano Banana 2(기본값·저비용). 사용자가 Imagen 4 선택.
+  - 상업이용: 3종 모두 동일 유료 AI Pro Flow 제품 경유 → 권리는 모델이 아니라 플랜에서 파생. 최종 출품 전 Google 현행 약관 재확인 필요.
+- **크레딧 — 이미지는 무료(확인됨)**: 에이전트 설정의 "생성하기 전에 확인 → 안 함" 툴팁(*"미디어를 생성하고 크레딧을 자동으로 사용합니다"*)은 **동영상 자동 모드**에 적용되는 설명이며 이미지 생성과는 무관. 사용자가 Pro 플랜에서 이미지를 다수 생성한 경험상 이미지 생성은 크레딧을 소비하지 않음 → CLAUDE.md "images are free" 전제 유지. (크레딧 소비는 동영상 모델에 한함.)
+- **다음 단계(미구현)**: `flow_imagen.py` 어댑터 재작업 — `_select_model`이 tune 기어만 누르고 끝나서 model_option 미스 발생. 새 흐름은 (1) tune 기어 → 패널 (2) **이미지 모델 드롭다운 트리거 클릭**(드롭다운 열기) (3) `Imagen 4` 옵션 클릭 (4) 종횡비 9:16 탭 + 출력 개수 탭 + `저장`. 프로브 스크립트의 셀렉터(`nano banana`/`imagen`/`arrow_drop_down` 트리거, role=option 수집)를 어댑터로 이식.
+
 ## 2026-05-30 — Flow 2026 UI는 셀렉터 패치가 아니라 어댑터 재작업 (Phase B 발견)
 
 - **발견**: 라이브 Flow UI(`labs.google/fx/ko/tools/flow`)가 기존 "Imagen 캔버스"(모델 드롭다운 → 종횡비 픽 → 4-variant 그리드 → variant별 다운로드)에서 **에이전트형 챗 UI**로 전면 개편됨. 진입 흐름이 바뀜:
@@ -70,6 +79,6 @@
 
 - 편집: Remotion (개인 무료 + 상업이용 OK)
 - 영상 생성: Google Flow Veo 3.1 high quality (AI Pro 유료 → 상업이용 OK)
-- 이미지: Google Flow Imagen 4 Ultra
+- 이미지: Google Flow **Imagen 4** (구 Imagen 4 Ultra는 Flow에서 사라짐 — 2026-05-31 결정 참조)
 - 음악: Pixabay / YouTube Audio Library
 - **금지**: Runway 무료, Suno/Udio 무료 (비상업 약관)

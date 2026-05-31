@@ -10,12 +10,12 @@ project:
 stages:
   s00_character_sheets:
     adapter: google_flow_imagen
-    model: imagen-4-ultra
+    model: imagen-4              # Imagen 4 Ultra retired from Flow (2026); Imagen 4 is the surviving Imagen tier. See DECISIONS 2026-05-31.
     aspect_ratio: 9:16
     prompts_file: prompts/00-character-sheets.yaml
   s01_cut_images:
     adapter: google_flow_imagen
-    model: imagen-4-ultra
+    model: imagen-4              # was imagen-4-ultra (retired) — see DECISIONS 2026-05-31
     aspect_ratio: 9:16
     prompts_file: prompts/01-cut-images.yaml
     depends_on:
