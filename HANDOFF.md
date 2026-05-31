@@ -52,9 +52,20 @@ Design and rationale: see the approved plan referenced in the commit body, summa
 
 1. **Phase B: paired selector iteration** (Windows, local Claude Code session).
    - Bootstrap: `python scripts/login_google_flow.py`.
+   - **Confirm the image-tool UI flow first:** `python scripts/probe_image_tool.py`
+     (read-only — navigates + dumps element maps to `runs/_probe/<ts>/`, never submits).
    - Test target: `creativeforge run musinsa-king-choice --only s00_character_sheets --auto-approve`.
    - First-guess selectors are committed but will mostly miss. Each miss dumps `runs/<id>/debug/<ts>-<label>.{html,png}`. Iterate by prepending new candidate lambdas in `creativeforge/browser/flow_imagen.py` and `flow_veo.py`. Keep older candidates at the bottom — they self-heal across Flow A/B tests.
    - Tools: `playwright codegen https://labs.google/fx/tools/flow --load-storage .auth/google.json`, `set PWDEBUG=1`.
+
+   **Image-mode UI discovered 2026-05-31 (UNVERIFIED — pre-seeded as TOP candidates in `flow_imagen.py`):**
+   `새 프로젝트` → close agent panel (`닫기`) → click the **`에이전트` pill** (this switches
+   the prompt bar into DIRECT image generation; model defaults to Imagen 4) → a combined
+   config button reading **`Imagen 4 crop_16_9 x2`** exposes model (Imagen 4 / Nano Banana),
+   aspect (`crop_16_9` / `crop_9_16`), count (`x2`) → `만들기` / arrow_forward submits →
+   tiles land in **`모든 미디어`**. The radix id (e.g. `radix-:r3s:`) is non-deterministic —
+   match on text, never the id. **9:16 maps to the `crop_9_16` token** (the old code passed
+   the literal `9:16` and missed; `_ASPECT_TOKENS` in `flow_imagen.py` now maps it).
 
 2. **Regenerate loop wiring**. `ui/approve.py` reports `regen` but `pipeline._run_stage` only logs the decision. Wire `regen` → re-run flagged items in place, then re-prompt. Look for the `# Regenerations happen inline ...` comment in `pipeline.py:_run_stage`.
 

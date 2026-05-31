@@ -50,10 +50,40 @@ async def _maybe_handle_captcha(page: Page) -> None:
     await asyncio.get_event_loop().run_in_executor(None, input)
 
 
+async def _open_new_project(page: Page) -> None:
+    """Click 새 프로젝트 (new project) to reach a fresh canvas."""
+    btn = await first_visible(
+        page,
+        [
+            # UNVERIFIED — confirm live (2026-05-31).
+            lambda p: p.get_by_role("button", name=re.compile(r"새\s*프로젝트|new\s+project", re.I)),
+            lambda p: p.get_by_text(re.compile(r"새\s*프로젝트|new\s+project", re.I)),
+        ],
+        label="open_new_project",
+    )
+    await btn.click()
+
+
+async def _close_agent_panel(page: Page) -> None:
+    """Best-effort: close the agent chat panel so the prompt bar exposes the image
+    mode pill. The panel may already be closed, so a miss is swallowed (not raised)."""
+    # UNVERIFIED — confirm live (2026-05-31): agent panel has a '닫기'/close button.
+    try:
+        btn = page.get_by_role("button", name=re.compile(r"닫기|close", re.I)).first
+        await btn.wait_for(state="visible", timeout=2500)
+        await btn.click()
+    except Exception:
+        return
+
+
 async def _open_image_tool(page: Page) -> None:
     btn = await first_visible(
         page,
         [
+            # UNVERIFIED — confirm live (2026-05-31): clicking the '에이전트' pill switches
+            # the prompt bar into DIRECT image-generation mode (model defaults to Imagen 4).
+            lambda p: p.get_by_role("button", name=re.compile(r"에이전트", re.I)),
+            lambda p: p.get_by_text(re.compile(r"^\s*에이전트\s*$")),
             lambda p: p.get_by_role("link", name=re.compile(r"image", re.I)),
             lambda p: p.get_by_role("button", name=re.compile(r"image", re.I)),
             lambda p: p.get_by_text(re.compile(r"^image$", re.I)),
@@ -69,6 +99,10 @@ async def _select_model(page: Page, model: str | None) -> None:
     picker = await first_visible(
         page,
         [
+            # UNVERIFIED — confirm live (2026-05-31): direct-image mode shows a combined
+            # config button reading e.g. "Imagen 4 crop_16_9 x2". Match on text — the radix
+            # id (e.g. radix-:r3s:) is non-deterministic across renders, never hard-code it.
+            lambda p: p.get_by_role("button", name=re.compile(r"imagen\s*4|nano\s*banana|crop_(16_9|9_16)", re.I)),
             lambda p: p.get_by_role("button", name=re.compile(r"model", re.I)),
             lambda p: p.locator("button:has-text('Imagen')"),
             lambda p: p.locator("[data-testid*=model]"),
@@ -80,6 +114,9 @@ async def _select_model(page: Page, model: str | None) -> None:
     option = await first_visible(
         page,
         [
+            # UNVERIFIED — confirm live (2026-05-31): options labelled "Imagen 4" / "Nano Banana".
+            lambda p: p.get_by_role("option", name=re.compile(r"imagen\s*4|nano\s*banana", re.I)),
+            lambda p: p.get_by_text(re.compile(r"imagen\s*4|nano\s*banana", re.I)),
             lambda p: p.get_by_role("option", name=re.compile(pretty, re.I)),
             lambda p: p.get_by_text(re.compile(pretty, re.I)),
         ],
@@ -88,10 +125,21 @@ async def _select_model(page: Page, model: str | None) -> None:
     await option.click()
 
 
+# Flow's aspect control uses tokens like 'crop_16_9' / 'crop_9_16', NOT '16:9' / '9:16'.
+# This project needs 9:16 → 'crop_9_16'. The prior code passed the bare ratio and missed.
+_ASPECT_TOKENS = {"9:16": "crop_9_16", "16:9": "crop_16_9", "1:1": "crop_1_1"}
+
+
 async def _select_aspect_ratio(page: Page, aspect: str) -> None:
+    token = _ASPECT_TOKENS.get(aspect, aspect)
     picker = await first_visible(
         page,
         [
+            # UNVERIFIED — confirm live (2026-05-31): aspect lives in the combined config
+            # popover and carries the Flow token (e.g. 'crop_9_16').
+            lambda p: p.get_by_role("button", name=re.compile(token, re.I)),
+            lambda p: p.get_by_role("tab", name=re.compile(token, re.I)),
+            lambda p: p.get_by_text(re.compile(token, re.I)),
             lambda p: p.get_by_role("button", name=re.compile(r"aspect|ratio", re.I)),
             lambda p: p.locator("button:has-text('16:9')"),
             lambda p: p.locator("button:has-text('9:16')"),
@@ -103,6 +151,9 @@ async def _select_aspect_ratio(page: Page, aspect: str) -> None:
     option = await first_visible(
         page,
         [
+            # UNVERIFIED — confirm live (2026-05-31): the 9:16 option is the 'crop_9_16' token.
+            lambda p: p.get_by_role("option", name=re.compile(token, re.I)),
+            lambda p: p.get_by_text(re.compile(token, re.I)),
             lambda p: p.get_by_role("option", name=aspect),
             lambda p: p.get_by_text(aspect, exact=True),
         ],
@@ -151,6 +202,9 @@ async def _submit(page: Page) -> None:
     btn = await first_visible(
         page,
         [
+            # UNVERIFIED — confirm live (2026-05-31): submit is '만들기' / an arrow_forward icon.
+            lambda p: p.get_by_role("button", name=re.compile(r"만들기", re.I)),
+            lambda p: p.locator("button:has-text('arrow_forward')"),
             lambda p: p.get_by_role("button", name=re.compile(r"^generate$|create", re.I)),
             lambda p: p.locator("button:has-text('Generate')"),
         ],
@@ -163,6 +217,8 @@ async def _wait_for_variants(page: Page, *, expected: int = 4, timeout_ms: int =
     grid_item = await first_visible(
         page,
         [
+            # UNVERIFIED — confirm live (2026-05-31): tiles land under '모든 미디어' (all media).
+            lambda p: p.get_by_text(re.compile(r"모든\s*미디어")).locator("xpath=following::img[1]"),
             lambda p: p.locator("[data-testid*=result]"),
             lambda p: p.locator("img[alt*='generated' i]"),
             lambda p: p.locator("[role=img]"),
@@ -178,6 +234,8 @@ async def _download_first_variant(page: Page, dest: Path) -> Path:
     variant = await first_visible(
         page,
         [
+            # UNVERIFIED — confirm live (2026-05-31): first tile under '모든 미디어'.
+            lambda p: p.get_by_text(re.compile(r"모든\s*미디어")).locator("xpath=following::img[1]"),
             lambda p: p.locator("[data-testid*=result]").first,
             lambda p: p.locator("img[alt*='generated' i]").first,
         ],
@@ -208,6 +266,8 @@ async def generate_image(page: Page, req: "GenRequest", out_dir: Path) -> "GenRe
     await page.goto(FLOW_URL, wait_until="domcontentloaded")
     await _ensure_logged_in(page)
     await _maybe_handle_captcha(page)
+    await _open_new_project(page)
+    await _close_agent_panel(page)
     await _open_image_tool(page)
     await _select_model(page, req.model)
     await _select_aspect_ratio(page, req.aspect_ratio or "9:16")

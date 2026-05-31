@@ -221,10 +221,11 @@ class Pipeline:
                 return {"status": "ok", "path": str(result.path), "model": result.model_used}
 
             if kind == "audio_search":
-                kind_q = item.extra.get("kind", "music")
+                # Music-only: diegetic SFX comes from Veo native audio, and the one
+                # non-diegetic title-card impact is a bundled Remotion asset.
                 results = await adapter.search_and_pick(
                     query=prompt,
-                    kind=kind_q,
+                    kind="music",
                     duration_s=item.extra.get("duration_s"),
                     out_dir=stage_dir,
                     top_k=item.extra.get("top_k", 3),
@@ -308,17 +309,13 @@ class Pipeline:
             if not spec.keywords_file:
                 raise StageError(f"{stage_id}: audio_search stage needs keywords_file")
             data = self._load_yaml(self.project_dir / spec.keywords_file)
+            # Music-only stage. SFX search was removed: diegetic SFX comes from Veo
+            # native audio; the title-card impact is a bundled Remotion asset.
             for i, q in enumerate(data.get("music_queries") or []):
                 yield Item(
                     id=f"music-{i:02d}",
                     prompt=q,
                     extra={"label": q[:60], "kind": "music"},
-                )
-            for i, q in enumerate(data.get("sfx_queries") or []):
-                yield Item(
-                    id=f"sfx-{i:02d}",
-                    prompt=q,
-                    extra={"label": q[:60], "kind": "sfx"},
                 )
             return
 
