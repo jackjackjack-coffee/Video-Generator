@@ -1,6 +1,7 @@
 # HANDOFF — creativeforge initial scaffold
 
 > Picked up by the next session. Read this first.
+> **Just want to run it? See [START.md](START.md) for ready-to-paste prompts.**
 
 ## What this is
 
