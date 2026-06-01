@@ -108,6 +108,13 @@ creativeforge run musinsa-king-choice --from s01_cut_images   # sheets came from
 creativeforge run musinsa-king-choice --from s03_voice
 ```
 
+**Hand-made videos + the end card.** Hand-made cut clips go in
+`remotion/public/clips-manual/cut01.mp4 … cut09.mp4` (compose resolves `CLIP_SRCS` from
+`public/clips/` first, then there). The final KV-on-black title card auto-links the Musinsa
+key visual from `branding/musinsa-logo.png` (≡ `kv-vertical.png`; swap the `staticFile` name
+in `TitleCard.tsx` to `kv-square.png` / `kv-horizontal.png` if preferred), and plays a 쿵
+impact when you drop a royalty-free `impact.mp3` into `remotion/public/sfx-bundled/`.
+
 ## How to verify what works right now
 
 ```bash

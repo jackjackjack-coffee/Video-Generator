@@ -5,6 +5,7 @@ import {
   Easing,
   Audio,
   Img,
+  Sequence,
   staticFile,
 } from "remotion";
 import { FPS, TITLE_IMPACT, AUDIO_MIX } from "./generated/manifest";
@@ -63,7 +64,9 @@ export const TitleCard: React.FC = () => {
     >
       {/* 쿵 임팩트 SFX — 번들 에셋(public/sfx-bundled/impact.mp3). 파일 추가 전엔 TITLE_IMPACT="" 라 렌더 안 됨. */}
       {TITLE_IMPACT ? (
-        <Audio src={staticFile(TITLE_IMPACT)} volume={AUDIO_MIX.impactVolume} />
+        <Sequence from={1}>
+          <Audio src={staticFile(TITLE_IMPACT)} volume={AUDIO_MIX.impactVolume} />
+        </Sequence>
       ) : null}
 
       {/* 무신사 무진장 공식 키비주얼 — 히어로 사이즈 */}

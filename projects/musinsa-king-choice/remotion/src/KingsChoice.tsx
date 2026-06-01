@@ -17,7 +17,7 @@ import {
   TOTAL_FRAMES,
   TITLE_CARD_FRAMES,
   CUTS,
-  AVAILABLE_CLIPS,
+  CLIP_SRCS,
   VOICES,
   MUSIC,
   AUDIO_MIX,
@@ -67,12 +67,12 @@ const ClipScene: React.FC<{ clipId: string; label: string; hasVoice: boolean }> 
   label,
   hasVoice,
 }) => {
-  const hasClip = AVAILABLE_CLIPS.has(clipId);
+  const src = CLIP_SRCS[clipId];
   return (
     <div style={{ width: "100%", height: "100%", position: "relative" }}>
-      {hasClip ? (
+      {src ? (
         <OffthreadVideo
-          src={staticFile(`clips/${clipId}.mp4`)}
+          src={staticFile(src)}
           volume={hasVoice ? AUDIO_MIX.clipNativeDuckedVolume : AUDIO_MIX.clipNativeVolume}
           style={{ width: "100%", height: "100%", objectFit: "cover" }}
         />

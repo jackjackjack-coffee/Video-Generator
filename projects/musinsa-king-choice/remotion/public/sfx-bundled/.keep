@@ -1,0 +1,3 @@
+Drop a single royalty-free impact sound here as impact.mp3 — the 쿵 on the title card.
+When present, the manifest sets TITLE_IMPACT and TitleCard.tsx plays it. The .mp3 is
+gitignored (licensing/size); this .keep keeps the folder in git.

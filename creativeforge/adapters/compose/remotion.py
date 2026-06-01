@@ -41,6 +41,27 @@ def _resolve_music_src(pub: Path, src: str) -> str | None:
     return None
 
 
+def _resolve_clip_src(pub: Path, filename: str) -> str | None:
+    """Find a cut video under public/clips/ (run-generated) or public/clips-manual/
+    (hand-made). Returns the staticFile-relative path or None if absent."""
+    for subdir in ("clips", "clips-manual"):
+        if (pub / subdir / filename).exists():
+            return f"{subdir}/{filename}"
+    return None
+
+
+def _place(src: Path, dest: Path) -> None:
+    """Link `src` into `dest`, copying instead if symlinks aren't permitted (e.g.
+    Windows without developer mode). Replaces any existing dest."""
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    if dest.exists() or dest.is_symlink():
+        dest.unlink()
+    try:
+        dest.symlink_to(src.resolve())
+    except OSError:
+        shutil.copy2(src, dest)
+
+
 def generate_manifest(project_dir: Path, run_dir: Path, available_clip_ids: set[str]) -> Path:
     sb = _load_storyboard(project_dir)
     pub = project_dir / "remotion" / "public"
@@ -75,6 +96,15 @@ def generate_manifest(project_dir: Path, run_dir: Path, available_clip_ids: set[
             }
         )
 
+    # Cut videos by id: run-generated (clips/) merged with hand-made (clips-manual/).
+    clip_srcs: dict[str, str] = {}
+    for cid in sorted(available_clip_ids):
+        clip_srcs[cid] = f"clips/{cid}.mp4"
+    manual_clips = pub / "clips-manual"
+    if manual_clips.is_dir():
+        for f in sorted(manual_clips.glob("*.mp4")):
+            clip_srcs.setdefault(f.stem, f"clips-manual/{f.stem}.mp4")
+
     # Single non-diegetic title-card impact (bundled, committed). Empty string until added.
     impact_rel = "sfx-bundled/impact.mp3"
     title_impact = impact_rel if (pub / impact_rel).exists() else ""
@@ -104,9 +134,8 @@ export const TOTAL_FRAMES = TOTAL_SECONDS * FPS;
 export const TITLE_CARD_SECONDS = {title_card['duration_s']};
 export const TITLE_CARD_FRAMES = TITLE_CARD_SECONDS * FPS;
 
-export const AVAILABLE_CLIPS: ReadonlySet<string> = new Set<string>(
-  {_ts_literal(sorted(available_clip_ids))}
-);
+// Cut video sources by id: run-generated (clips/) or hand-made (clips-manual/).
+export const CLIP_SRCS: Record<string, string> = {_ts_literal(clip_srcs)};
 
 export const CUTS = {_ts_literal([
     {"id": c["id"], "start": c["start_s"], "duration": c["duration_s"], "label": c.get("label", "")}
@@ -134,12 +163,15 @@ export const AUDIO_MIX = {_ts_literal(audio_mix)} as const;
 
 
 def _link_artifacts(project_dir: Path, run_dir: Path) -> set[str]:
-    """Symlink run artifacts into remotion/public/{clips,voice,music}/.
+    """Place run artifacts + committed source assets into remotion/public/.
 
-    No `sfx/` subdir: diegetic SFX is baked into the Veo clips and the one
-    non-diegetic impact is the committed `public/sfx-bundled/impact.mp3`. The
-    `public/music-manual/` folder (hand-picked YT Audio Library tracks) is also
-    committed, not symlinked. Returns the set of clip ids that have an mp4.
+    Run output is linked into public/{clips,voice,music}/. The committed Musinsa KV
+    (branding/musinsa-logo.png) is placed at public/musinsa-logo.png so the title card
+    resolves it. Hand-made cut videos live in the committed public/clips-manual/ folder,
+    hand-picked tracks in public/music-manual/, and the one non-diegetic impact in
+    public/sfx-bundled/impact.mp3 — all local drop-ins read directly by the manifest.
+    Linking falls back to copy where symlinks aren't permitted (Windows). Returns the
+    set of run-generated clip ids that have an mp4.
     """
     pub = project_dir / "remotion" / "public"
     available_clips: set[str] = set()
@@ -153,16 +185,17 @@ def _link_artifacts(project_dir: Path, run_dir: Path) -> set[str]:
         src = run_dir / stage
         if not src.is_dir():
             continue
-        dest = pub / subdir
-        dest.mkdir(parents=True, exist_ok=True)
         for f in src.iterdir():
             if f.suffix.lower() in {".mp4", ".mp3", ".wav"}:
-                target = dest / f.name
-                if target.exists() or target.is_symlink():
-                    target.unlink()
-                target.symlink_to(f.resolve())
+                _place(f, pub / subdir / f.name)
                 if f.suffix.lower() == ".mp4":
                     available_clips.add(f.stem)
+
+    # Committed Musinsa key visual → public/ so TitleCard's staticFile resolves it.
+    kv = project_dir / "branding" / "musinsa-logo.png"
+    if kv.exists():
+        _place(kv, pub / "musinsa-logo.png")
+
     return available_clips
 
 

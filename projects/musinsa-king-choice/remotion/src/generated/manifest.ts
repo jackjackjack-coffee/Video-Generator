@@ -8,9 +8,8 @@ export const TOTAL_FRAMES = TOTAL_SECONDS * FPS;
 export const TITLE_CARD_SECONDS = 2;
 export const TITLE_CARD_FRAMES = TITLE_CARD_SECONDS * FPS;
 
-export const AVAILABLE_CLIPS: ReadonlySet<string> = new Set<string>(
-  []
-);
+// Cut video sources by id: run-generated (clips/) or hand-made (clips-manual/).
+export const CLIP_SRCS: Record<string, string> = {};
 
 export const CUTS = [
   {
