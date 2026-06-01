@@ -10,7 +10,7 @@ items:
   cut02:
     label: 단종·신하 무릎
     references: []
-    prompt: "Slow gentle camera push-in toward young King Danjong's tearful face. A\nsingle tear slowly rolls down his cheek. His lips tremble slightly,\neyes blinking heavy with sorrow. In the soft-focus
+    prompt: "Slow gentle camera push-in toward King Danjong's tearful face. A\nsingle tear slowly rolls down his cheek. His lips tremble slightly,\neyes blinking heavy with sorrow. In the soft-focus
       background, court\nattendants remain kneeling and bowing, one of them shoulders shaking\nsubtly from quiet weeping. Warm candlelight flickers gently. Ambient\nsound only — soft breathing and faint
       distant traditional Korean\nstring instrument, no dialogue. Heartbreaking, somber atmosphere.\nCinematic 9:16 vertical, historical Korean drama, photorealistic."
   cut03:
@@ -28,20 +28,20 @@ items:
   cut05:
     label: 단종 무진장 절규
     references: []
-    prompt: "Extreme close-up of young King Danjong's face. A large glistening tear\nslowly forms and rolls down his cheek in slow motion. His mouth opens\nwide in an emotional cry, eyes squeezing shut
+    prompt: "Extreme close-up of King Danjong's face. A large glistening tear\nslowly forms and rolls down his cheek in slow motion. His mouth opens\nwide in an emotional cry, eyes squeezing shut
       briefly then opening\nagain wider. Subtle camera shake for dramatic effect. The candlelight\nflickers on his face. Ambient sound only — soft sobbing breath, no\nclear dialogue (mouth shape can suggest
       the Korean word\n\"mujinjang\"). Heartbreaking, almost comedic-tragic atmosphere.\nCinematic 9:16 vertical, extreme close-up, photorealistic."
   cut06:
     label: 변신 시퀀스
     references: []
-    prompt: "Playful whimsical shot inside the palace room. The traditional folding\nscreen (byeongpung) rises smoothly upward, revealing behind it the\nsilhouette of King Danjong quickly changing clothes
+    prompt: "Playful whimsical shot inside the palace room. The traditional folding\nscreen (byeongpung) rises smoothly upward, revealing behind it the\nfully-clothed silhouette of King Danjong quickly swapping his outer robe
       — quick humorous\nsilhouette motion of arms going up and down. The palace maid stands to\nthe side smiling, holding out modern streetwear. After 2 seconds, the\nscreen lowers back down. Subtle sparkle
       particles in the air. Bright\nwarm light, light comedic tone. Ambient sound only — soft fabric\nrustling and gentle magical chime, no dialogue. Cinematic 9:16\nvertical, photorealistic with whimsical
       mood."
   cut07:
     label: 단종 현대 패션 선포
     references: []
-    prompt: "Confident medium shot of young King Danjong wearing modern streetwear\n(cream oversized hoodie, black cargo pants, white sneakers) and\ntraditional royal crown. He stands tall, then makes a
+    prompt: "Confident medium shot of King Danjong wearing modern streetwear\n(cream oversized hoodie, black cargo pants, white sneakers) and\ntraditional royal crown. He stands tall, then makes a
       subtle \"whatever\nyou want\" hand gesture — flicking his wrist casually. His eyes are\nstill slightly red but his expression is calm, slightly smirking. A\ngentle rim light catches his outline. Background
       palace stays in soft\nfocus. Ambient sound only — subtle fabric movement, faint modern beat\nhint, no dialogue. Playful, cool atmosphere blending old and new.\nCinematic 9:16 vertical, fashion editorial
       meets historical drama,\nphotorealistic."
@@ -54,7 +54,7 @@ items:
   cut09:
     label: 조정 → 궁문 행진 + 문 닫힘 (3초) ⭐ NEW
     references: []
-    prompt: "Epic cinematic wide tracking shot from a low angle. King Danjong\n(young Korean boy in modern streetwear and traditional black silk\ncrown) walks slowly and confidently in slow motion down
+    prompt: "Epic cinematic wide tracking shot from a low angle. King Danjong\n(a youthful young-adult Korean king in modern streetwear and traditional\nblack silk crown) walks slowly and confidently in slow motion down
       the red\ncarpet of a grand Joseon palace courtyard, leading the procession.\nA few steps behind him, Prince Suyang and several court officials in\ncolorful traditional Joseon robes follow with respectful
       posture,\nwalking at normal speed (creating dramatic time contrast with the\nslow-motion Danjong). The camera tracks alongside them, slowly\npulling back. They approach a massive Korean palace gate
       at the far\nend of the courtyard. As Danjong walks past the camera and through\nthe gate, the camera lingers as the gate's tall heavy wooden double\ndoors slowly begin to close from both sides. The

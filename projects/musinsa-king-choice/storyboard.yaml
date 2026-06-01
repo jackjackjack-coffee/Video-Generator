@@ -1,3 +1,7 @@
+# Two distinct edge-tts voices per character: 단종(danjong)=ko-KR-HyunsuMultilingualNeural,
+# 수양(suyang)=ko-KR-InJoonNeural. CONFIRM the exact voice names + timbre locally with
+# `edge-tts --list-voices | findstr ko-KR` (this cloud env can't reach the TTS endpoint).
+# If HyunsuMultilingual is unavailable, fall back to ko-KR-InJoonNeural for both.
 fps: 30
 width: 1080
 height: 1920
@@ -25,7 +29,7 @@ cuts:
   label: 단종-수양 대화
   dialogue:
     speaker: danjong
-    voice: ko-KR-InJoonNeural
+    voice: ko-KR-HyunsuMultilingualNeural
     style: tearful
     text: 숙부, 어찌하여…
 - id: cut05
@@ -34,7 +38,7 @@ cuts:
   label: 단종 무진장 절규
   dialogue:
     speaker: danjong
-    voice: ko-KR-InJoonNeural
+    voice: ko-KR-HyunsuMultilingualNeural
     style: tearful
     text: 무진장… 슬프구나
 - id: cut06
@@ -47,7 +51,7 @@ cuts:
   label: 단종 현대 패션 선포
   dialogue:
     speaker: danjong
-    voice: ko-KR-InJoonNeural
+    voice: ko-KR-HyunsuMultilingualNeural
     style: royal
     text: "그리하라.\n숙부님 마음대로 다 하십쇼."
 - id: cut08
@@ -65,13 +69,35 @@ cuts:
   label: 조정→궁문 행진 + 문 닫힘
   dialogue:
     speaker: danjong
-    voice: ko-KR-InJoonNeural
+    voice: ko-KR-HyunsuMultilingualNeural
     style: royal
     text: "곧 무진장이다.\n의복을 사야 하니 단단히 준비하라!"
 title_card:
   start_s: 28
   duration_s: 2
   text: 왕의 선택
+# Background music beds (s05 compose / Remotion). `src` is a filename resolved against
+# remotion/public/music/ (Pixabay auto-download) OR remotion/public/music-manual/
+# (hand-picked YouTube Audio Library tracks). The compose step skips an entry whose file
+# is not present yet, so these placeholder names render silently until you add the files.
+music:
+- src: REPLACE-historical-bed.mp3
+  start_s: 0
+  end_s: 20
+  volume: 0.28
+- src: REPLACE-fashion-beat.mp3
+  start_s: 20
+  end_s: 28
+  volume: 0.3
+# Audio mix levels surfaced into the Remotion manifest as AUDIO_MIX. Tune by ear locally.
+# clip_native_* duck the Veo clip's diegetic audio; dialogue cuts use the ducked level so
+# the TTS voice sits on top. music_duck_factor multiplies a bed's volume during dialogue.
+audio:
+  voice_volume: 1.0
+  clip_native_volume: 0.12
+  clip_native_ducked_volume: 0.05
+  music_duck_factor: 0.55
+  impact_volume: 0.9
 subtitles_legacy:
 - start_s: 6
   end_s: 10

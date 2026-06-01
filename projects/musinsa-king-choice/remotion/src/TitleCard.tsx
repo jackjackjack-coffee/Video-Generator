@@ -5,9 +5,10 @@ import {
   Easing,
   Audio,
   Img,
+  Sequence,
   staticFile,
 } from "remotion";
-import { FPS } from "./constants";
+import { FPS, TITLE_IMPACT, AUDIO_MIX } from "./generated/manifest";
 
 /**
  * TitleCard — 28~30초 (2초)
@@ -61,8 +62,12 @@ export const TitleCard: React.FC = () => {
         gap: 40,
       }}
     >
-      {/* 쿵 임팩트 SFX — public/sfx/impact.mp3 배치 후 활성화 */}
-      {/* <Audio src={staticFile("sfx/impact.mp3")} volume={1.0} /> */}
+      {/* 쿵 임팩트 SFX — 번들 에셋(public/sfx-bundled/impact.mp3). 파일 추가 전엔 TITLE_IMPACT="" 라 렌더 안 됨. */}
+      {TITLE_IMPACT ? (
+        <Sequence from={1}>
+          <Audio src={staticFile(TITLE_IMPACT)} volume={AUDIO_MIX.impactVolume} />
+        </Sequence>
+      ) : null}
 
       {/* 무신사 무진장 공식 키비주얼 — 히어로 사이즈 */}
       <Img

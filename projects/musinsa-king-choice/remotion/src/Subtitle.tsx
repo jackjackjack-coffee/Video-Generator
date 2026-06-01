@@ -1,6 +1,6 @@
 import React from "react";
 import { useCurrentFrame, interpolate, Easing } from "remotion";
-import { FPS, SUBTITLES } from "./constants";
+import { FPS, SUBTITLES } from "./generated/manifest";
 
 export const Subtitle: React.FC = () => {
   const frame = useCurrentFrame();

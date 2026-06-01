@@ -29,20 +29,94 @@ def _ts_literal(value) -> str:
     return json.dumps(value, ensure_ascii=False, indent=2)
 
 
+def _resolve_music_src(pub: Path, src: str) -> str | None:
+    """Find a music filename under public/music/ (Pixabay auto) or
+    public/music-manual/ (hand-picked YT Audio Library). Returns the
+    staticFile-relative path (e.g. 'music/foo.mp3') or None if not present yet."""
+    if not src:
+        return None
+    for subdir in ("music", "music-manual"):
+        if (pub / subdir / src).exists():
+            return f"{subdir}/{src}"
+    return None
+
+
+def _resolve_clip_src(pub: Path, filename: str) -> str | None:
+    """Find a cut video under public/clips/ (run-generated) or public/clips-manual/
+    (hand-made). Returns the staticFile-relative path or None if absent."""
+    for subdir in ("clips", "clips-manual"):
+        if (pub / subdir / filename).exists():
+            return f"{subdir}/{filename}"
+    return None
+
+
+def _place(src: Path, dest: Path) -> None:
+    """Link `src` into `dest`, copying instead if symlinks aren't permitted (e.g.
+    Windows without developer mode). Replaces any existing dest."""
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    if dest.exists() or dest.is_symlink():
+        dest.unlink()
+    try:
+        dest.symlink_to(src.resolve())
+    except OSError:
+        shutil.copy2(src, dest)
+
+
 def generate_manifest(project_dir: Path, run_dir: Path, available_clip_ids: set[str]) -> Path:
     sb = _load_storyboard(project_dir)
+    pub = project_dir / "remotion" / "public"
     cuts = sb.get("cuts", [])
+
     subtitles: list[dict] = []
+    voices: list[dict] = []
     for c in cuts:
         d = c.get("dialogue")
-        if d and d.get("text"):
-            subtitles.append(
-                {
-                    "start": c["start_s"],
-                    "end": c["start_s"] + c["duration_s"],
-                    "text": d["text"],
-                }
-            )
+        if not (d and d.get("text")):
+            continue
+        start = c["start_s"]
+        end = c["start_s"] + c["duration_s"]
+        subtitles.append({"start": start, "end": end, "text": d["text"]})
+        # edge_tts names voice clips <cut_id>.mp3; list it only once linked into
+        # public/voice/ so a missing file never 404s the render (mirrors AVAILABLE_CLIPS).
+        if (pub / "voice" / f"{c['id']}.mp3").exists():
+            voices.append({"id": c["id"], "src": f"voice/{c['id']}.mp3", "start": start, "end": end})
+
+    # Music beds: source-agnostic by filename, resolved against public/music{,-manual}/.
+    music: list[dict] = []
+    for m in sb.get("music", []) or []:
+        rel = _resolve_music_src(pub, m.get("src", ""))
+        if rel is None:
+            continue
+        music.append(
+            {
+                "src": rel,
+                "start": m.get("start_s", 0),
+                "end": m.get("end_s", 0),
+                "volume": m.get("volume", 0.3),
+            }
+        )
+
+    # Cut videos by id: run-generated (clips/) merged with hand-made (clips-manual/).
+    clip_srcs: dict[str, str] = {}
+    for cid in sorted(available_clip_ids):
+        clip_srcs[cid] = f"clips/{cid}.mp4"
+    manual_clips = pub / "clips-manual"
+    if manual_clips.is_dir():
+        for f in sorted(manual_clips.glob("*.mp4")):
+            clip_srcs.setdefault(f.stem, f"clips-manual/{f.stem}.mp4")
+
+    # Single non-diegetic title-card impact (bundled, committed). Empty string until added.
+    impact_rel = "sfx-bundled/impact.mp3"
+    title_impact = impact_rel if (pub / impact_rel).exists() else ""
+
+    a = sb.get("audio", {}) or {}
+    audio_mix = {
+        "voiceVolume": a.get("voice_volume", 1.0),
+        "clipNativeVolume": a.get("clip_native_volume", 0.12),
+        "clipNativeDuckedVolume": a.get("clip_native_ducked_volume", 0.05),
+        "musicDuckFactor": a.get("music_duck_factor", 0.55),
+        "impactVolume": a.get("impact_volume", 0.9),
+    }
 
     title_card = sb.get("title_card", {"start_s": 28, "duration_s": 2})
     total_seconds = max(
@@ -60,9 +134,8 @@ export const TOTAL_FRAMES = TOTAL_SECONDS * FPS;
 export const TITLE_CARD_SECONDS = {title_card['duration_s']};
 export const TITLE_CARD_FRAMES = TITLE_CARD_SECONDS * FPS;
 
-export const AVAILABLE_CLIPS: ReadonlySet<string> = new Set<string>(
-  {_ts_literal(sorted(available_clip_ids))}
-);
+// Cut video sources by id: run-generated (clips/) or hand-made (clips-manual/).
+export const CLIP_SRCS: Record<string, string> = {_ts_literal(clip_srcs)};
 
 export const CUTS = {_ts_literal([
     {"id": c["id"], "start": c["start_s"], "duration": c["duration_s"], "label": c.get("label", "")}
@@ -70,6 +143,17 @@ export const CUTS = {_ts_literal([
 ])} as const;
 
 export const SUBTITLES: {{ start: number; end: number; text: string }}[] = {_ts_literal(subtitles)};
+
+// Per-cut TTS dialogue clips (diegetic Veo audio is ducked under these). See AUDIO_MIX.
+export const VOICES: {{ id: string; src: string; start: number; end: number }}[] = {_ts_literal(voices)};
+
+// Background music beds (Pixabay auto + hand-picked YouTube Audio Library).
+export const MUSIC: {{ src: string; start: number; end: number; volume: number }}[] = {_ts_literal(music)};
+
+// Single non-diegetic title-card impact ("" until the bundled asset is added).
+export const TITLE_IMPACT = {_ts_literal(title_impact)};
+
+export const AUDIO_MIX = {_ts_literal(audio_mix)} as const;
 """
     out_dir = project_dir / "remotion" / "src" / "generated"
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -79,9 +163,15 @@ export const SUBTITLES: {{ start: number; end: number; text: string }}[] = {_ts_
 
 
 def _link_artifacts(project_dir: Path, run_dir: Path) -> set[str]:
-    """Symlink run artifacts into remotion/public/{clips,music,sfx,voice}/.
+    """Place run artifacts + committed source assets into remotion/public/.
 
-    Returns the set of clip ids that have an mp4.
+    Run output is linked into public/{clips,voice,music}/. The committed Musinsa KV
+    (branding/musinsa-logo.png) is placed at public/musinsa-logo.png so the title card
+    resolves it. Hand-made cut videos live in the committed public/clips-manual/ folder,
+    hand-picked tracks in public/music-manual/, and the one non-diegetic impact in
+    public/sfx-bundled/impact.mp3 — all local drop-ins read directly by the manifest.
+    Linking falls back to copy where symlinks aren't permitted (Windows). Returns the
+    set of run-generated clip ids that have an mp4.
     """
     pub = project_dir / "remotion" / "public"
     available_clips: set[str] = set()
@@ -95,16 +185,17 @@ def _link_artifacts(project_dir: Path, run_dir: Path) -> set[str]:
         src = run_dir / stage
         if not src.is_dir():
             continue
-        dest = pub / subdir
-        dest.mkdir(parents=True, exist_ok=True)
         for f in src.iterdir():
             if f.suffix.lower() in {".mp4", ".mp3", ".wav"}:
-                target = dest / f.name
-                if target.exists() or target.is_symlink():
-                    target.unlink()
-                target.symlink_to(f.resolve())
+                _place(f, pub / subdir / f.name)
                 if f.suffix.lower() == ".mp4":
                     available_clips.add(f.stem)
+
+    # Committed Musinsa key visual → public/ so TitleCard's staticFile resolves it.
+    kv = project_dir / "branding" / "musinsa-logo.png"
+    if kv.exists():
+        _place(kv, pub / "musinsa-logo.png")
+
     return available_clips
 
 

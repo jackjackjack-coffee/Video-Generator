@@ -82,6 +82,7 @@ class Pipeline:
         auto_approve: bool = False,
         only: str | None = None,
         from_stage: str | None = None,
+        resume: bool = False,
     ):
         self.cfg = cfg
         self.project_dir = project_dir
@@ -90,6 +91,7 @@ class Pipeline:
         self.auto_approve = auto_approve
         self.only = only
         self.from_stage = from_stage
+        self.resume = resume
         self.state: RunState | None = None
         self._adapters: dict[str, Any] = {}
 
@@ -97,13 +99,28 @@ class Pipeline:
 
     async def run(self) -> None:
         self.run_dir.mkdir(parents=True, exist_ok=True)
-        self.state = RunState.create(
-            self.run_dir,
-            project_id=self.cfg.project.id,
-            config_snapshot=self.cfg.model_dump(mode="json"),
-        )
+        if self.resume:
+            # Reuse the existing run folder + state so prior artifacts (and the
+            # references that downstream stages resolve from them) survive.
+            self.state = RunState.load(self.run_dir)
+            console.print(f"[green]Resuming run:[/green] {self.run_dir.name}")
+        else:
+            self.state = RunState.create(
+                self.run_dir,
+                project_id=self.cfg.project.id,
+                config_snapshot=self.cfg.model_dump(mode="json"),
+            )
 
         order = self._topo_order()
+
+        if self.resume and not self.from_stage and not self.only:
+            start = self.state.first_incomplete_stage(order)
+            if start is None:
+                console.print("[green]✓ Nothing to resume — all stages already approved.[/green]")
+                return
+            self.from_stage = start
+            console.print(f"[yellow]→ first incomplete stage: {start}[/yellow]")
+
         if self.from_stage:
             if self.from_stage not in order:
                 raise StageError(f"--from {self.from_stage}: stage not in plan")
@@ -151,12 +168,26 @@ class Pipeline:
         if kind != "compose" and not self.auto_approve and self.cfg.approval.mode == "gate":
             from creativeforge.ui.approve import approve_stage
 
-            decision = await approve_stage(stage_id, stage_dir, self.run_dir)
-            if decision == "quit":
-                self.state.set_stage_status(stage_id, "aborted")
-                raise StageError(f"User aborted at {stage_id}")
-            # Regenerations happen inline inside approve_stage via the regen callback
-            # (it calls back into the pipeline). For MVP we just record approval here.
+            # Gate → regenerate flagged items in place → re-open the gate, until the
+            # user approves/skips everything (or quits). `[e]` writes a prompt override
+            # that the re-dispatch picks up via _apply_override.
+            while True:
+                decision, regen_ids = await approve_stage(stage_id, stage_dir, self.run_dir)
+                if decision == "quit":
+                    self.state.set_stage_status(stage_id, "aborted")
+                    raise StageError(f"User aborted at {stage_id}")
+                if decision == "regen" and regen_ids:
+                    items_by_id = {it.id: it for it in self._resolve_items(stage_id, spec, kind)}
+                    for rid in regen_ids:
+                        it = items_by_id.get(rid)
+                        if it is None:
+                            console.print(f"  [yellow]regen: item {rid} not found, skipping[/yellow]")
+                            continue
+                        console.rule(f"[magenta]↻ regenerate {rid}[/magenta]")
+                        info = await self._dispatch(stage_id, spec, kind, stage_dir, it)
+                        self.state.record_item(stage_id, it.id, info)
+                    continue  # re-open the gate with the fresh artifacts
+                break
 
         self.state.set_stage_status(stage_id, "approved")
 
@@ -168,8 +199,29 @@ class Pipeline:
         stage_dir: Path,
         item: Item,
     ) -> None:
+        if self.resume and self._item_already_done(stage_id, item):
+            console.print(f"  • [bold]{item.id}[/bold] — [dim]already done, skipping[/dim]")
+            return
         info = await self._dispatch(stage_id, spec, kind, stage_dir, item)
         self.state.record_item(stage_id, item.id, info)
+
+    def _item_already_done(self, stage_id: str, item: Item) -> bool:
+        """True if the item is recorded 'ok' and its artifact(s) still exist on disk.
+
+        Lets `resume` re-enter a stage to re-open its approval gate without
+        re-generating (and re-paying for) items that already succeeded. Delete an
+        artifact to force its regeneration on the next resume.
+        """
+        rec = (
+            self.state.data.get("stages", {})
+            .get(stage_id, {})
+            .get("items", {})
+            .get(item.id)
+        )
+        if not rec or rec.get("status") != "ok":
+            return False
+        paths = [p for p in [rec.get("path"), *(rec.get("paths") or [])] if p]
+        return bool(paths) and all(Path(p).exists() for p in paths)
 
     # -- adapter dispatch ---------------------------------------------------
 
@@ -221,10 +273,11 @@ class Pipeline:
                 return {"status": "ok", "path": str(result.path), "model": result.model_used}
 
             if kind == "audio_search":
-                kind_q = item.extra.get("kind", "music")
+                # Music-only: diegetic SFX comes from Veo native audio, and the one
+                # non-diegetic title-card impact is a bundled Remotion asset.
                 results = await adapter.search_and_pick(
                     query=prompt,
-                    kind=kind_q,
+                    kind="music",
                     duration_s=item.extra.get("duration_s"),
                     out_dir=stage_dir,
                     top_k=item.extra.get("top_k", 3),
@@ -308,17 +361,13 @@ class Pipeline:
             if not spec.keywords_file:
                 raise StageError(f"{stage_id}: audio_search stage needs keywords_file")
             data = self._load_yaml(self.project_dir / spec.keywords_file)
+            # Music-only stage. SFX search was removed: diegetic SFX comes from Veo
+            # native audio; the title-card impact is a bundled Remotion asset.
             for i, q in enumerate(data.get("music_queries") or []):
                 yield Item(
                     id=f"music-{i:02d}",
                     prompt=q,
                     extra={"label": q[:60], "kind": "music"},
-                )
-            for i, q in enumerate(data.get("sfx_queries") or []):
-                yield Item(
-                    id=f"sfx-{i:02d}",
-                    prompt=q,
-                    extra={"label": q[:60], "kind": "sfx"},
                 )
             return
 
@@ -327,34 +376,44 @@ class Pipeline:
     # -- references / overrides / meta --------------------------------------
 
     def _resolve_references(self, refs: list[str]) -> list[Path]:
-        """Best-effort: 'Sheet 3 (Suyang)' -> stage-00 file starting with 'sheet3'.
+        """Resolve reference labels (e.g. 'Sheet 3 (Suyang)') to image files.
 
-        Misses are logged but don't abort — the adapter may still produce a
-        useful result, and the user can fix labels in DECISIONS.md follow-ups.
+        Looks in this run's stage-00 / stage-01 output first, then the project's
+        `references/` folder — so hand-made images dropped in
+        `projects/<id>/references/` (named sheet1.png, cut03.png, …) are picked up
+        without running the generator. Misses are logged but don't abort.
         """
         out: list[Path] = []
-        sheets_dir = self.run_dir / stage_subdir("s00_character_sheets")
-        cut_imgs_dir = self.run_dir / stage_subdir("s01_cut_images")
+        refs_dir = self.project_dir / "references"
+        sheet_dirs = [self.run_dir / stage_subdir("s00_character_sheets"), refs_dir]
+        cut_dirs = [self.run_dir / stage_subdir("s01_cut_images"), refs_dir]
+        exts = ("png", "jpg", "jpeg", "webp")
         for ref in refs:
             m = re.search(r"sheet\s*(\d+)", ref, re.I)
             if m:
-                num = m.group(1)
-                hits = list(sheets_dir.glob(f"sheet{num}*.png")) + list(
-                    sheets_dir.glob(f"sheet{num}*.jpg")
-                )
-                if hits:
-                    out.append(hits[0])
+                hit = self._first_image(sheet_dirs, f"sheet{m.group(1)}", exts)
+                if hit:
+                    out.append(hit)
                     continue
             m = re.search(r"cut\s*0*(\d+)", ref, re.I)
             if m:
-                hits = list(cut_imgs_dir.glob(f"cut{int(m.group(1)):02d}*.png")) + list(
-                    cut_imgs_dir.glob(f"cut{int(m.group(1)):02d}*.jpg")
-                )
-                if hits:
-                    out.append(hits[0])
+                hit = self._first_image(cut_dirs, f"cut{int(m.group(1)):02d}", exts)
+                if hit:
+                    out.append(hit)
                     continue
             console.print(f"    [yellow]reference unresolved: {ref!r}[/yellow]")
         return out
+
+    @staticmethod
+    def _first_image(dirs: list[Path], stem_prefix: str, exts: tuple[str, ...]) -> Path | None:
+        for d in dirs:
+            if not d.is_dir():
+                continue
+            for ext in exts:
+                hits = sorted(d.glob(f"{stem_prefix}*.{ext}"))
+                if hits:
+                    return hits[0]
+        return None
 
     def _apply_override(self, item: Item) -> str:
         override_dir = self.run_dir / "prompt-overrides"
@@ -442,6 +501,7 @@ async def run_pipeline(
     auto_approve: bool = False,
     only: str | None = None,
     from_stage: str | None = None,
+    resume: bool = False,
 ) -> None:
     p = Pipeline(
         cfg=cfg,
@@ -451,5 +511,6 @@ async def run_pipeline(
         auto_approve=auto_approve,
         only=only,
         from_stage=from_stage,
+        resume=resume,
     )
     await p.run()

@@ -2,16 +2,39 @@ import React from "react";
 import {
   Composition,
   Series,
-  Video,
+  Sequence,
+  OffthreadVideo,
   Audio,
   staticFile,
   useCurrentFrame,
   interpolate,
   Easing,
 } from "remotion";
-import { FPS, WIDTH, HEIGHT, TOTAL_FRAMES, TITLE_CARD_FRAMES, CUTS, AVAILABLE_CLIPS } from "./generated/manifest";
+import {
+  FPS,
+  WIDTH,
+  HEIGHT,
+  TOTAL_FRAMES,
+  TITLE_CARD_FRAMES,
+  CUTS,
+  CLIP_SRCS,
+  VOICES,
+  MUSIC,
+  AUDIO_MIX,
+} from "./generated/manifest";
 import { Subtitle } from "./Subtitle";
 import { TitleCard } from "./TitleCard";
+
+// Cuts that have a TTS voice clip linked — their Veo clip audio ducks beneath the voice.
+const VOICE_CUT_IDS = new Set(VOICES.map((v) => v.id));
+
+// Global-frame dialogue windows, used to duck the music beds under speech.
+const DIALOGUE_WINDOWS: [number, number][] = VOICES.map((v) => [
+  Math.round(v.start * FPS),
+  Math.round(v.end * FPS),
+]);
+const isDialogueFrame = (globalFrame: number): boolean =>
+  DIALOGUE_WINDOWS.some(([a, b]) => globalFrame >= a && globalFrame < b);
 
 // 클립 파일이 아직 없을 때 표시할 자리표시자 — 컷 라벨을 보여줌
 const ClipPlaceholder: React.FC<{ label: string; clipId: string }> = ({ label, clipId }) => (
@@ -37,14 +60,20 @@ const ClipPlaceholder: React.FC<{ label: string; clipId: string }> = ({ label, c
   </div>
 );
 
-// 개별 컷: 영상 클립(있으면) + 자막 오버레이
-const ClipScene: React.FC<{ clipId: string; label: string }> = ({ clipId, label }) => {
-  const hasClip = AVAILABLE_CLIPS.has(clipId);
+// 개별 컷: 영상 클립(있으면) + 자막 오버레이.
+// Veo 네이티브 오디오(현장 효과음/앰비언스)는 낮게 깔고, 대사가 있는 컷은 더 낮춰 TTS 음성이 위에 앉도록 함.
+const ClipScene: React.FC<{ clipId: string; label: string; hasVoice: boolean }> = ({
+  clipId,
+  label,
+  hasVoice,
+}) => {
+  const src = CLIP_SRCS[clipId];
   return (
     <div style={{ width: "100%", height: "100%", position: "relative" }}>
-      {hasClip ? (
-        <Video
-          src={staticFile(`clips/${clipId}.mp4`)}
+      {src ? (
+        <OffthreadVideo
+          src={staticFile(src)}
+          volume={hasVoice ? AUDIO_MIX.clipNativeDuckedVolume : AUDIO_MIX.clipNativeVolume}
           style={{ width: "100%", height: "100%", objectFit: "cover" }}
         />
       ) : (
@@ -83,7 +112,7 @@ const MainSequence: React.FC = () => {
             name={cut.label}
           >
             <FadeScene durationInFrames={cut.duration * FPS}>
-              <ClipScene clipId={cut.id} label={cut.label} />
+              <ClipScene clipId={cut.id} label={cut.label} hasVoice={VOICE_CUT_IDS.has(cut.id)} />
             </FadeScene>
           </Series.Sequence>
         ))}
@@ -93,8 +122,32 @@ const MainSequence: React.FC = () => {
         </Series.Sequence>
       </Series>
 
-      {/* BGM — public/music/bgm.mp3 배치 후 활성화 */}
-      {/* <Audio src={staticFile("music/bgm.mp3")} volume={0.7} /> */}
+      {/* 대사 TTS 음성 — storyboard 타이밍에 배치. 음성 파일이 public/voice/에 링크돼야 VOICES에 들어옴. */}
+      {VOICES.map((v) => {
+        const fromFrame = Math.round(v.start * FPS);
+        const durFrames = Math.round((v.end - v.start) * FPS);
+        return (
+          <Sequence key={`voice-${v.id}`} from={fromFrame} durationInFrames={durFrames} name={`voice-${v.id}`}>
+            <Audio src={staticFile(v.src)} volume={AUDIO_MIX.voiceVolume} />
+          </Sequence>
+        );
+      })}
+
+      {/* 배경 음악 베드 — Pixabay 자동 / YT Audio Library 수동. 대사 구간에선 살짝 덕킹. */}
+      {MUSIC.map((m, i) => {
+        const fromFrame = Math.round(m.start * FPS);
+        const durFrames = Math.round((m.end - m.start) * FPS);
+        return (
+          <Sequence key={`music-${i}`} from={fromFrame} durationInFrames={durFrames} name={`music-${i}`}>
+            <Audio
+              src={staticFile(m.src)}
+              volume={(rel) =>
+                isDialogueFrame(fromFrame + rel) ? m.volume * AUDIO_MIX.musicDuckFactor : m.volume
+              }
+            />
+          </Sequence>
+        );
+      })}
     </div>
   );
 };

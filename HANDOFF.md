@@ -1,6 +1,7 @@
 # HANDOFF — creativeforge initial scaffold
 
 > Picked up by the next session. Read this first.
+> **Just want to run it? See [START.md](START.md) for ready-to-paste prompts.**
 
 ## What this is
 
@@ -52,13 +53,30 @@ Design and rationale: see the approved plan referenced in the commit body, summa
 
 1. **Phase B: paired selector iteration** (Windows, local Claude Code session).
    - Bootstrap: `python scripts/login_google_flow.py`.
+   - **Confirm the image-tool UI flow first:** `python scripts/probe_image_tool.py`
+     (read-only — navigates + dumps element maps to `runs/_probe/<ts>/`, never submits).
    - Test target: `creativeforge run musinsa-king-choice --only s00_character_sheets --auto-approve`.
    - First-guess selectors are committed but will mostly miss. Each miss dumps `runs/<id>/debug/<ts>-<label>.{html,png}`. Iterate by prepending new candidate lambdas in `creativeforge/browser/flow_imagen.py` and `flow_veo.py`. Keep older candidates at the bottom — they self-heal across Flow A/B tests.
    - Tools: `playwright codegen https://labs.google/fx/tools/flow --load-storage .auth/google.json`, `set PWDEBUG=1`.
 
-2. **Regenerate loop wiring**. `ui/approve.py` reports `regen` but `pipeline._run_stage` only logs the decision. Wire `regen` → re-run flagged items in place, then re-prompt. Look for the `# Regenerations happen inline ...` comment in `pipeline.py:_run_stage`.
+   **Image-mode UI discovered 2026-05-31 (UNVERIFIED — pre-seeded as TOP candidates in `flow_imagen.py`):**
+   `새 프로젝트` → close agent panel (`닫기`) → click the **`에이전트` pill** (this switches
+   the prompt bar into DIRECT image generation; model defaults to Imagen 4) → a combined
+   config button reading **`Imagen 4 crop_16_9 x2`** exposes model (Imagen 4 / Nano Banana),
+   aspect (`crop_16_9` / `crop_9_16`), count (`x2`) → `만들기` / arrow_forward submits →
+   tiles land in **`모든 미디어`**. The radix id (e.g. `radix-:r3s:`) is non-deterministic —
+   match on text, never the id. **9:16 maps to the `crop_9_16` token** (the old code passed
+   the literal `9:16` and missed; `_ASPECT_TOKENS` in `flow_imagen.py` now maps it).
 
-3. **`resume <run_id>`** — load `state.json`, find the first non-`approved` stage, restart `Pipeline` from there. The infrastructure (`RunState.load`, `--from`) exists; needs a thin wrapper that derives the start stage automatically.
+2. ✅ **Regenerate loop wiring** — DONE. `approve_stage` now returns `(decision, regen_ids)`;
+   `pipeline._run_stage` loops: gate → re-dispatch the flagged items in place (picking up any `[e]`
+   prompt override) → re-open the gate, until you approve/skip everything (or `q`).
+
+3. ✅ **`resume <run_id>`** — DONE. Loads `state.json`, derives the first non-`approved`/`skipped`
+   stage, and restarts the pipeline **in the same run folder** (so prior artifacts + the references
+   downstream stages resolve from them survive). Items already recorded `ok` with their file on
+   disk are skipped, so a resume doesn't re-spend credits; delete an artifact to force its regen.
+   Usage: `creativeforge resume <run_id> [--auto-approve] [--from <stage>] [--dry-run]`.
 
 ### Medium priority
 
@@ -75,6 +93,29 @@ Design and rationale: see the approved plan referenced in the commit body, summa
 11. Parallel item generation within a stage.
 12. AI-process auto-capture → PDF for festival submission.
 
+## Generating images by hand (no automation)
+
+If you make the character sheets / cut images by hand in Flow instead of running the
+adapters, drop the downloaded files into **`projects/musinsa-king-choice/references/`**
+named by their reference number — `sheet1.png … sheet5.png` (per
+`prompts/00-character-sheets.yaml`), and `cut03.png` etc. for hand-made cut frames.
+`Pipeline._resolve_references` now checks that folder (after the run's own stage output),
+so downstream stages resolve them automatically. Then run only the stages you still need,
+e.g. skip image generation:
+
+```bash
+creativeforge run musinsa-king-choice --from s01_cut_images   # sheets came from references/
+# or, if you hand-make everything visual, jump straight to voice/audio/compose:
+creativeforge run musinsa-king-choice --from s03_voice
+```
+
+**Hand-made videos + the end card.** Hand-made cut clips go in
+`remotion/public/clips-manual/cut01.mp4 … cut09.mp4` (compose resolves `CLIP_SRCS` from
+`public/clips/` first, then there). The final KV-on-black title card auto-links the Musinsa
+key visual from `branding/musinsa-logo.png` (≡ `kv-vertical.png`; swap the `staticFile` name
+in `TitleCard.tsx` to `kv-square.png` / `kv-horizontal.png` if preferred), and plays a 쿵
+impact when you drop a royalty-free `impact.mp3` into `remotion/public/sfx-bundled/`.
+
 ## How to verify what works right now
 
 ```bash
@@ -85,6 +126,8 @@ creativeforge list                                         # shows musinsa-king-
 creativeforge run musinsa-king-choice --dry-run --auto-approve   # full plan, no adapter calls
 creativeforge run musinsa-king-choice --only s03_voice --auto-approve   # real edge-tts call
 creativeforge run musinsa-king-choice --from s03_voice     # resume-style start
+creativeforge resume <run_id> --dry-run --auto-approve     # resume plan for an existing run
+python -m creativeforge doctor                             # fallback if `creativeforge` not on PATH
 ```
 
 To test the Pixabay adapter standalone:

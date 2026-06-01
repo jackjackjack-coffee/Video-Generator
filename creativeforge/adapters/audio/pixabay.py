@@ -1,7 +1,11 @@
-"""Pixabay music/SFX search and download.
+"""Pixabay music search and download.
 
-API docs: https://pixabay.com/api/docs/ (music endpoint is /api/music/, sfx is also /api/music/
-with appropriate filters). Pixabay license allows commercial use without attribution.
+API docs: https://pixabay.com/api/docs/ (music endpoint is /api/music/). Pixabay
+license allows commercial use without attribution.
+
+Music-only by design: diegetic SFX now comes from Veo native audio, and the single
+non-diegetic title-card impact is a bundled Remotion asset. The ``kind`` parameter is
+kept for Protocol compatibility but ``"sfx"`` is rejected (see ``search_and_pick``).
 """
 
 from __future__ import annotations
@@ -35,6 +39,12 @@ class PixabayAdapter:
         out_dir: Path,
         top_k: int = 5,
     ) -> list[GenResult]:
+        if kind == "sfx":
+            raise ValueError(
+                "Pixabay SFX search was removed. Diegetic SFX comes from Veo native "
+                "audio; the non-diegetic title-card impact is a bundled Remotion asset "
+                "(remotion/public/sfx-bundled/impact.mp3)."
+            )
         out_dir.mkdir(parents=True, exist_ok=True)
 
         params: dict[str, str | int] = {

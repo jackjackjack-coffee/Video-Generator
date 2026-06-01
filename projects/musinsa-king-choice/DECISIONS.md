@@ -4,6 +4,40 @@
 
 ---
 
+## 2026-05-31 — Flow 이미지 도구 UI 탐색 + 오디오 파이프라인 재설계
+
+### Flow 이미지 생성 UI 진입 경로 (탐색 결과, UNVERIFIED)
+- 직전 로컬 세션에서 알아낸 흐름(세션 리셋으로 유실 → 코드/문서에 박제): `새 프로젝트` →
+  에이전트 패널 닫기(`닫기`) → **`에이전트` 필 클릭**(프롬프트 바가 직접 이미지 생성 모드로
+  전환, 모델 기본값 Imagen 4) → 결합형 설정 버튼 `Imagen 4 crop_16_9 x2`(모델 Imagen 4/Nano
+  Banana, 종횡비 `crop_16_9`/`crop_9_16`, 개수 `x2`) → `만들기`/arrow_forward 제출 →
+  타일은 `모든 미디어`에 생성.
+- **결정**: 9:16 = `crop_9_16` 토큰. 기존 코드가 `"9:16"` 문자열을 그대로 넘겨 빗나갔음 →
+  `flow_imagen.py`에 `_ASPECT_TOKENS` 매핑 추가. radix id(`radix-:r3s:` 등)는 렌더마다
+  바뀌므로 **절대 id로 셀렉트하지 않고 텍스트로 매칭**.
+- 발견한 후보들을 `flow_imagen.py` 각 체인의 **최상단**에 `UNVERIFIED` 주석과 함께 선반영.
+  로컬 로그인 세션에서 `python scripts/probe_image_tool.py`(읽기 전용)로 확정.
+
+### 오디오 파이프라인 재설계 (Veo 네이티브 + 전용 TTS 하이브리드)
+- **음성(대사)**: 전용 TTS 유지(Veo로 옮기지 않음). 근거 — 대사가 6개 컷에 걸친 짧은 사극
+  한국어라 캐릭터별 음색 일관성·정확한 대본·무료 재생성이 중요. Veo는 컷마다 음색이 흔들리고
+  HQ 클립 재생성은 ~3배 크레딧. 단종/수양 **음성 2개로 분리**(단종=`ko-KR-HyunsuMultilingualNeural`,
+  수양=`ko-KR-InJoonNeural`). storyboard `voice:` 필드만 수정 — 어댑터 코드 변경 불필요.
+  ⚠️ 클라우드 환경은 edge-tts 엔드포인트(speech.platform.bing.com) SSL 프록시로 차단 → 음성
+  이름·음색은 로컬에서 `edge-tts --list-voices`로 확정. Hyunsu 계열 없으면 둘 다 InJoon로 폴백.
+- **효과음(SFX)**: Pixabay SFX 검색 경로 **제거**. 현장 효과음/앰비언스는 Veo 네이티브
+  오디오(컷 클립에 포함, compose에서 대사 밑으로 덕킹). 유일한 비현장 효과음(타이틀 카드 "쿵"
+  임팩트)은 Remotion에 **번들 에셋** `remotion/public/sfx-bundled/impact.mp3`로 커밋.
+- **음악**: Pixabay(자동 API) + YouTube Audio Library(API 없음 → `remotion/public/music-manual/`
+  수동 드롭인). 두 음원 모두 도구 정책 + 상업 이용 OK. storyboard `music:` 블록에서 파일명·
+  타이밍·볼륨 지정(전통 베드 0–20s, 패션 비트 20–28s).
+- **믹싱**: Remotion이 컷 네이티브 오디오(덕킹) + TTS 음성(주) + 음악 베드(대사 구간 덕킹) +
+  타이틀 임팩트를 합성. 볼륨은 storyboard `audio:` 블록 → 매니페스트 `AUDIO_MIX`. 최종 레벨은
+  로컬에서 귀로 확정.
+- **edge-tts 상업 라이선스 주의**: edge-tts는 비공식 MS 엔드포인트라 상업 이용 보장이 없음.
+  광고제(상업) 최종 제출 전 Clova/ElevenLabs(유료, 상업 라이선스)로 교체 검토 —
+  `project.yaml`의 `fallback_adapter: clova` 훅 이미 존재.
+
 ## 2026-05-27 — Flow Playwright 어댑터 Phase A 스캐폴딩 (페어드 세션 준비)
 
 - `creativeforge/browser/selectors.py`: `first_visible()` fallback 체인 + 미스 시 HTML/스크린샷 덤프. `CURRENT_RUN_DIR` ContextVar로 덤프 위치 주입.

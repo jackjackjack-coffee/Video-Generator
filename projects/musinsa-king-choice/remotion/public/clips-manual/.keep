@@ -1,0 +1,4 @@
+Drop hand-made cut videos here: cut01.mp4 … cut09.mp4 (named by storyboard cut id).
+The compose step (creativeforge/adapters/compose/remotion.py) resolves CLIP_SRCS from
+public/clips/ (pipeline-generated) then this folder. The .mp4 files are gitignored;
+this .keep keeps the folder in git.

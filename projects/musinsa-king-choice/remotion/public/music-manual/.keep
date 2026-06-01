@@ -1,0 +1,4 @@
+Drop hand-picked YouTube Audio Library tracks here, then reference the filename in
+storyboard.yaml `music:` (src). The manifest resolves music src from public/music/
+(Pixabay auto-download) then this folder. The audio files are gitignored; this .keep
+keeps the folder in git.
